@@ -387,6 +387,14 @@
                 },
 
                 select: function(info) {
+                    // 🚫 Запрет выбора прошедших дней
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const selectedDateStr = info.startStr.split('T')[0];
+                    if (selectedDateStr < todayStr) {
+                        calendar.unselect();
+                        return showToast('⚠️ O‘tgan kunlarga ariza topshirish taqiqlangan!');
+                    }
+
                     currentEventData = null;
                     selectedTimeInfo = info;
                     resetForm();
@@ -605,10 +613,33 @@
                 endStr = endDate.toISOString();
             }
 
+            // 🚫 Проверка заявок на прошедшие дни
+            const todayStr = new Date().toISOString().split('T')[0];
+            const eventDateStr = startStr.split('T')[0];
+            if (eventDateStr < todayStr) {
+                return showToast('⚠️ O‘tgan kunlarga ariza topshirish taqiqlangan!');
+            }
+
             // Проверка превышения времени 21:00
             const checkEnd = new Date(endStr);
             if (checkEnd.getHours() > 21 || (checkEnd.getHours() === 21 && checkEnd.getMinutes() > 0)) {
                 return showToast('⚠️ Operatsiya 21:00 dan oshib ketmoqda!');
+            }
+
+            // 🚫 Проверка пересечения времени (Overlap check)
+            const newStartMs = new Date(startStr).getTime();
+            const newEndMs = new Date(endStr).getTime();
+            const currentDocId = currentEventData ? currentEventData.id : null;
+
+            const isOverlapping = localEventsCache.some(ev => {
+                if (ev.id === currentDocId) return false;
+                const evStartMs = new Date(ev.start).getTime();
+                const evEndMs = new Date(ev.end).getTime();
+                return (newStartMs < evEndMs && newEndMs > evStartMs);
+            });
+
+            if (isOverlapping) {
+                return showToast('⚠️ Bu vaqt allaqachon band qilingan!');
             }
 
             const isNew = !currentEventData;
