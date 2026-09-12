@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Operatsiyalar rejasi</title>
+    
+    <!-- Telegram SDK & FullCalendar -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/uz.global.min.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-active: #0369a1;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh; display: flex; flex-direction: column;
+            font-size: 14px;
+            overflow: hidden;
+            touch-action: pan-x pan-y;
+            overscroll-behavior: none;
+        }
+
+        #app-content { display: flex; flex-direction: column; height: 100%; position: relative; }
+
+        .date-navigation-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px; background: var(--card-bg); border-bottom: 1px solid var(--border);
+        }
+        .nav-arrow-btn {
+            background: #f1f5f9; border: 1px solid var(--border);
+            padding: 6px 16px; border-radius: 8px; font-weight: bold; font-size: 15px;
+            cursor: pointer; color: var(--text-main);
+        }
+        
+        .current-date-picker-wrap {
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+        .current-date-title {
+            font-size: 14px; font-weight: 700; color: var(--text-main); cursor: pointer; text-decoration: underline; text-decoration-style: dotted;
+        }
+        .hidden-date-input {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+        }
+
+        .screen { display: none; flex: 1; padding: 6px; overflow-y: auto; }
+        .screen.active { display: flex; flex-direction: column; }
+
+        #calendar {
+            background: var(--card-bg);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            touch-action: manipulation;
+            flex: 1;
+        }
+
+        .fc-toolbar { display: none !important; }
+        .fc-col-header { display: none !important; }
+
+        .fc-timegrid-slot { height: 55px !important; border-bottom: 1px dashed #e2e8f0 !important; }
+
+        .fc-timegrid-axis { width: 70px !important; }
+        .fc-timegrid-slot-label { width: 70px !important; }
+        .fc-timegrid-axis-cushion, .fc-timegrid-slot-label-cushion {
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            color: #475569 !important;
+            padding: 6px 8px !important;
+            text-align: center !important;
+        }
+
+        .fc-timegrid-event {
+            border-radius: 8px !important;
+            border: 1px solid rgba(0,0,0,0.15) !important;
+            padding: 4px 8px !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+        }
+        .fc-event-main {
+            padding: 2px !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .fc-event-time {
+            font-size: 11px !important;
+            font-weight: 800 !important;
+            opacity: 0.9;
+            margin-bottom: 2px;
+        }
+        .fc-event-title {
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            line-height: 1.25 !important;
+            white-space: normal !important;
+        }
+
+        .bottom-toolbar {
+            display: flex; gap: 4px; padding: 6px; background: var(--card-bg);
+            border-top: 1px solid var(--border); width: 100%; margin-top: auto;
+        }
+        .action-btn {
+            flex: 1;
+            background: #e0f2fe; color: var(--primary); border: 1px solid #bae6fd;
+            padding: 10px 4px; border-radius: 8px; font-weight: 700; font-size: 12px;
+            cursor: pointer; text-align: center; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
+            transition: all 0.2s;
+        }
+        .action-btn.active {
+            background: var(--primary); color: #ffffff; border-color: var(--primary);
+        }
+
+        /* Чат */
+        .chat-container {
+            display: flex; flex-direction: column; height: 100%;
+            background: var(--card-bg); border-radius: 12px; padding: 10px; border: 1px solid var(--border);
+        }
+        .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+        .msg { display: flex; flex-direction: column; max-width: 85%; padding: 8px 12px; border-radius: 10px; background: #e2e8f0; align-self: flex-start; }
+        .msg.my { background: var(--primary); color: #ffffff; align-self: flex-end; }
+        .msg-header { font-size: 11px; font-weight: 700; opacity: 0.85; margin-bottom: 4px; display: flex; justify-content: space-between; gap: 8px; }
+        .msg-text { font-size: 14px; line-height: 1.35; }
+        .chat-input-area { display: flex; gap: 6px; }
+        .chat-input-area input { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 8px; outline: none; font-size: 14px; }
+        .chat-input-area button { padding: 10px 16px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-weight: 700; font-size: 14px; }
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(3px); z-index: 1000;
+            justify-content: center; align-items: center; padding: 10px;
+        }
+        .modal {
+            background: var(--card-bg); width: 100%; height: calc(100vh - 20px); max-width: 500px;
+            padding: 18px 16px; display: flex; flex-direction: column; overflow-y: auto;
+            border-radius: 16px; border: 2px solid var(--border); box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+        }
+        .modal h3 { margin: 0 0 14px 0; font-size: 18px; font-weight: 800; color: var(--text-main); border-bottom: 2px solid var(--bg-color); padding-bottom: 8px; }
+        
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; }
+        .form-group input[type="text"] { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; outline: none; background: #f8fafc; }
+        
+        .duration-selector { display: flex; gap: 8px; }
+        .duration-btn {
+            flex: 1; padding: 12px; border: 1px solid var(--border); background: #f8fafc;
+            border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--text-main);
+            cursor: pointer; text-align: center; transition: all 0.2s;
+        }
+        .duration-btn.selected { background: var(--primary); color: #ffffff; border-color: var(--primary); }
+
+        .checkbox-group { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid var(--border); }
+        .checkbox-group input { width: 20px; height: 20px; accent-color: var(--primary); }
+        .checkbox-group label { font-size: 14px; font-weight: 600; cursor: pointer; }
+        .checkbox-group input:disabled + label { color: var(--text-muted); opacity: 0.7; }
+
+        .modal-buttons { display: flex; gap: 10px; margin-top: auto; padding-top: 14px; }
+        .modal-buttons button { flex: 1; padding: 14px; border-radius: 10px; border: none; font-weight: 700; font-size: 14px; cursor: pointer; }
+        .btn-cancel { background: #e2e8f0; color: var(--text-main); }
+        .btn-save { background: var(--primary); color: #ffffff; }
+        .btn-delete { background: var(--danger); color: #ffffff; display: none; }
+
+        .daily-plan-textarea {
+            width: 100%; flex: 1; font-family: monospace; font-size: 14px; line-height: 1.5;
+            padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+            background: #f8fafc; resize: none; margin-top: 8px; outline: none; min-height: 250px;
+        }
+
+        .toast-notification {
+            display: none; position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%);
+            background: #0f172a; color: #ffffff; padding: 12px 20px; border-radius: 12px;
+            font-size: 14px; font-weight: 600; z-index: 2000; box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+            text-align: center; width: 90%; max-width: 340px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toast-notification" id="toast"></div>
+
+    <div id="app-content">
+        <div class="date-navigation-bar" id="date-nav-bar">
+            <button class="nav-arrow-btn" onclick="navigateDay(-1)">❮</button>
+            <div class="current-date-picker-wrap">
+                <span class="current-date-title" id="current-date-display">...</span>
+                <input type="date" class="hidden-date-input" id="manual-date-picker" onchange="onManualDateSelect(this.value)">
+            </div>
+            <button class="nav-arrow-btn" onclick="navigateDay(1)">❯</button>
+        </div>
+
+        <div id="calendar-screen" class="screen active">
+            <div id="calendar"></div>
+        </div>
+
+        <div id="chat-screen" class="screen">
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-box"></div>
+                <div class="chat-input-area">
+                    <input type="text" id="msg-input" placeholder="Xabar kiriting...">
+                    <button onclick="sendMessage()">Yuborish</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-toolbar">
+            <button class="action-btn" id="filter-my-btn" onclick="handleFilterButtonClick()">Barcha arizalar</button>
+            <button class="action-btn" onclick="generateDailyPlan()">📋 Kun rejasi</button>
+            <button class="action-btn active" id="tab-btn-chat" onclick="switchTab('chat-screen', this)">💬 Chat</button>
+        </div>
+    </div>
+
+    <!-- Modal: Заявка -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <h3 id="modal-title">Operatsiya arizasi</h3>
+            <div class="form-group">
+                <label>BEMORNING F.I.SH. *</label>
+                <input type="text" id="patient-name" placeholder="Ismoilov I.I.">
+            </div>
+            <div class="form-group">
+                <label>OPERATSIYA TURI *</label>
+                <input type="text" id="operation-type" placeholder="Appendektomiya">
+            </div>
+            <div class="form-group">
+                <label>SHIFOKOR F.I.SH. *</label>
+                <input type="text" id="doctor-name" placeholder="Karimov A.S.">
+            </div>
+            
+            <div class="form-group" id="duration-group">
+                <label>OPERATSIYA DAVOMIYLIGI *</label>
+                <div class="duration-selector">
+                    <div class="duration-btn selected" data-value="60" onclick="selectDuration(this)">1 soat</div>
+                    <div class="duration-btn" data-value="90" onclick="selectDuration(this)">1.5 soat</div>
+                    <div class="duration-btn" data-value="120" onclick="selectDuration(this)">2 soat</div>
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="has-consent">
+                <label for="has-consent">Bemor roziligi</label>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="reanimator-approved">
+                <label for="reanimator-approved" id="reanimator-label">Reanimatolog ruxsati</label>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-delete" id="btn-delete-op" onclick="openConfirmDeleteModal()">O‘chirish</button>
+                <button class="btn-cancel" onclick="closeModal('modal-overlay')">Yopish</button>
+                <button class="btn-save" id="btn-save-op" onclick="saveOperation()">Saqlash</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Подтверждение удаления -->
+    <div class="modal-overlay" id="confirm-modal-overlay">
+        <div class="modal" style="height: auto; max-height: 90vh;">
+            <h3>Bekor qilishni tasdiqlash</h3>
+            <p style="font-size: 15px; color: var(--text-muted); margin-bottom: 24px;">Haqiqatan ham ushbu operatsiyani bekor qilmoqchimisiz?</p>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal('confirm-modal-overlay')">Ortga</button>
+                <button class="btn-delete" style="display: block;" onclick="openReasonModal()">Ha, bekor qilish</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Причина отмены -->
+    <div class="modal-overlay" id="reason-modal-overlay">
+        <div class="modal" style="height: auto; max-height: 90vh;">
+            <h3>Bekor qilish sababi</h3>
+            <div class="form-group">
+                <label>SABABINI KO‘RSATING *</label>
+                <input type="text" id="cancel-reason-input" placeholder="masalan: Bemor rad etdi / Aks ko‘rsatma">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal('reason-modal-overlay')">Bekor qilish</button>
+                <button class="btn-delete" style="display: block;" onclick="submitDeleteWithReason()">Tasdiqlash</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Дневной план -->
+    <div class="modal-overlay" id="plan-modal-overlay">
+        <div class="modal">
+            <h3 id="plan-modal-title">Operatsiyalar rejasi</h3>
+            <textarea class="daily-plan-textarea" id="daily-plan-text" readonly></textarea>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal('plan-modal-overlay')">Yopish</button>
+                <button class="btn-save" onclick="copyDailyPlan()">📋 Nusxalash</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ⚙️ НАСТРОЙКИ TELEGRAM И FIREBASE
+        const BOT_TOKEN = "ВАШ_BOT_TOKEN_ИЗ_BOTFATHER";
+        const GROUP_CHAT_ID = "ВАШ_GROUP_CHAT_ID";
+        const REANIMATOR_IDS = ["123456789", "987654321"]; // Список Telegram ID реаниматологов через запятую[span_6](start_span)[span_6](end_span)
+
+        const firebaseConfig = {
+            apiKey: "ВАШ_API_KEY",
+            authDomain: "ВАШ_PROJECT.firebaseapp.com",
+            projectId: "ВАШ_PROJECT_ID",
+            storageBucket: "ВАШ_PROJECT.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        if (typeof tg.disableVerticalSwipes === 'function') tg.disableVerticalSwipes();
+        if (typeof tg.enableClosingConfirmation === 'function') tg.enableClosingConfirmation();
+
+        const user = tg.initDataUnsafe?.user || { id: 0, first_name: 'Foydalanuvchi' };
+        
+        let calendar = null;
+        let selectedTimeInfo = null;
+        let currentEventData = null;
+        let isReanimator = REANIMATOR_IDS.includes(String(user.id));
+        let currentScreen = 'calendar-screen';
+        
+        let filterOnlyMyOperations = false;
+        let selectedDurationMinutes = 60;
+        let localEventsCache = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initCalendar();
+            initChatListener();
+        });
+
+        function showToast(text) {
+            const toast = document.getElementById('toast');
+            toast.innerText = text;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2500);
+        }
+
+        function formatTashkentTime(dateObj, options) {
+            return new Date(dateObj).toLocaleString('uz-UZ', {
+                timeZone: 'Asia/Tashkent',
+                ...options
+            });
+        }
+
+        function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                headerToolbar: false,
+                dayHeaders: false,
+                initialView: 'timeGridDay',
+                locale: 'uz',
+                height: '100%',
+                
+                slotMinTime: '08:00:00',
+                slotMaxTime: '21:00:00',
+                allDaySlot: false,
+
+                slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+                selectable: true,
+                selectLongPressDelay: 500,
+
+                datesSet: function(info) {
+                    updateCurrentDateDisplay(info.view.currentStart);
+                },
+
+                select: function(info) {
+                    currentEventData = null;
+                    selectedTimeInfo = info;
+                    resetForm();
+                    setFormReadOnly(false);
+                    document.getElementById('modal-title').innerText = "Yangi ariza";
+                    document.getElementById('duration-group').style.display = 'block';
+                    document.getElementById('btn-delete-op').style.display = 'none';
+                    document.getElementById('modal-overlay').style.display = 'flex';
+                },
+
+                eventClick: function(info) {
+                    const event = info.event;
+                    const props = event.extendedProps;
+                    
+                    currentEventData = { 
+                        id: event.id, 
+                        userId: props.userId, 
+                        startStr: event.startStr, 
+                        endStr: event.endStr,
+                        patientName: props.patientName,
+                        operationType: props.operationType,
+                        doctorName: props.doctorName,
+                        hasConsent: props.hasConsent,
+                        reanimatorApproved: props.reanimatorApproved
+                    };
+
+                    document.getElementById('patient-name').value = props.patientName || '';
+                    document.getElementById('operation-type').value = props.operationType || '';
+                    document.getElementById('doctor-name').value = props.doctorName || '';
+                    document.getElementById('has-consent').checked = props.hasConsent || false;
+                    document.getElementById('reanimator-approved').checked = props.reanimatorApproved || false;
+
+                    document.getElementById('modal-title').innerText = "Operatsiya tafsilotlari";
+                    document.getElementById('duration-group').style.display = 'none';
+
+                    const isAuthor = String(props.userId) === String(user.id);
+                    const canEdit = isAuthor || isReanimator;
+
+                    setFormReadOnly(!canEdit, isAuthor, isReanimator);
+                    document.getElementById('btn-delete-op').style.display = canEdit ? 'block' : 'none';
+
+                    document.getElementById('modal-overlay').style.display = 'flex';
+                }
+            });
+
+            calendar.render();
+            updateCurrentDateDisplay(calendar.getDate());
+
+            // 🔄 Обновления Firestore в реальном времени
+            db.collection("events").onSnapshot((snapshot) => {
+                localEventsCache = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const isFullyApproved = data.hasConsent && data.reanimatorApproved;
+                    const color = isFullyApproved ? '#059669' : '#d97706';
+                    const icons = `${data.hasConsent ? '📝' : '❌'}${data.reanimatorApproved ? '💉' : '⏳'}`;
+
+                    localEventsCache.push({
+                        id: doc.id,
+                        title: `${icons} ${data.operationType} | ${data.patientName}`,
+                        start: data.start,
+                        end: data.end,
+                        backgroundColor: color,
+                        borderColor: color,
+                        extendedProps: data
+                    });
+                });
+                renderFilteredEvents();
+            });
+        }
+
+        function renderFilteredEvents() {
+            if (!calendar) return;
+            calendar.removeAllEvents();
+            if (filterOnlyMyOperations) {
+                const filtered = localEventsCache.filter(e => String(e.extendedProps.userId) === String(user.id));
+                calendar.addEventSource(filtered);
+            } else {
+                calendar.addEventSource(localEventsCache);
+            }
+        }
+
+        function handleFilterButtonClick() {
+            if (currentScreen !== 'calendar-screen') {
+                switchTab('calendar-screen', null);
+            } else {
+                toggleMyOperationsFilter();
+            }
+        }
+
+        function toggleMyOperationsFilter() {
+            filterOnlyMyOperations = !filterOnlyMyOperations;
+            const filterBtn = document.getElementById('filter-my-btn');
+
+            if (filterOnlyMyOperations) {
+                filterBtn.innerText = 'Mening arizalarim';
+                filterBtn.classList.add('active');
+                showToast('Faqat sizning operatsiyalaringiz ko‘rsatilmoqda');
+            } else {
+                filterBtn.innerText = 'Barcha arizalar';
+                filterBtn.classList.remove('active');
+                showToast('Barcha operatsiyalar ko‘rsatilmoqda');
+            }
+
+            renderFilteredEvents();
+        }
+
+        function selectDuration(btnEl) {
+            document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('selected'));
+            btnEl.classList.add('selected');
+            selectedDurationMinutes = parseInt(btnEl.getAttribute('data-value'));
+        }
+
+        function updateCurrentDateDisplay(dateObj) {
+            const displaySpan = document.getElementById('current-date-display');
+            const pickerInput = document.getElementById('manual-date-picker');
+
+            const dateStr = dateObj.toLocaleDateString('uz-UZ', {
+                weekday: 'short', day: '2-digit', month: 'long', year: 'numeric'
+            });
+            displaySpan.innerText = dateStr;
+            pickerInput.value = dateObj.toISOString().split('T')[0];
+        }
+
+        function navigateDay(step) {
+            if (!calendar) return;
+            if (step === -1) calendar.prev();
+            if (step === 1) calendar.next();
+        }
+
+        function onManualDateSelect(selectedDateStr) {
+            if (!selectedDateStr || !calendar) return;
+            calendar.gotoDate(selectedDateStr);
+        }
+
+        function generateDailyPlan() {
+            const selectedDate = calendar.getDate();
+            const selYear = selectedDate.getFullYear();
+            const selMonth = selectedDate.getMonth();
+            const selDay = selectedDate.getDate();
+
+            const dayEvents = localEventsCache.filter(e => {
+                const evDate = new Date(e.start);
+                return evDate.getFullYear() === selYear &&
+                       evDate.getMonth() === selMonth &&
+                       evDate.getDate() === selDay;
+            });
+
+            dayEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+            const formattedDate = selectedDate.toLocaleDateString('uz-UZ', {
+                day: '2-digit', month: '2-digit', year: 'numeric', weekday: 'long'
+            });
+
+            let planText = `📋 KUNLIK OPERATSIYALAR REJASI: ${formattedDate.toUpperCase()}\n`;
+            planText += `===================================\n\n`;
+
+            if (dayEvents.length === 0) {
+                planText += `Ushbu kunga rejalashtirilgan operatsiyalar mavjud emas.`;
+            } else {
+                dayEvents.forEach((ev, idx) => {
+                    const props = ev.extendedProps;
+                    const startTime = formatTashkentTime(ev.start, { hour: '2-digit', minute: '2-digit' });
+                    const endTime = formatTashkentTime(ev.end, { hour: '2-digit', minute: '2-digit' });
+
+                    planText += `${idx + 1}. [${startTime} - ${endTime}]\n`;
+                    planText += `   Bemor: ${props.patientName}\n`;
+                    planText += `   Operatsiya: ${props.operationType}\n`;
+                    planText += `   Shifokor: ${props.doctorName}\n`;
+                    planText += `   Rozilik: ${props.hasConsent ? 'Mavjud ✅' : 'YO‘Q ❌'} | Reanimatolog: ${props.reanimatorApproved ? 'Ruxsat berildi ✅' : 'Kutilmoqda ⏳'}\n`;
+                    planText += `-----------------------------------\n`;
+                });
+            }
+
+            document.getElementById('plan-modal-title').innerText = `${formattedDate} rejasi`;
+            document.getElementById('daily-plan-text').value = planText;
+            document.getElementById('plan-modal-overlay').style.display = 'flex';
+        }
+
+        function copyDailyPlan() {
+            const textarea = document.getElementById('daily-plan-text');
+            textarea.select();
+            document.execCommand('copy');
+            closeModal('plan-modal-overlay');
+            showToast('📋 Kun rejasi nusxalandi!');
+        }
+
+        function setFormReadOnly(isReadOnly, isAuthor = false, isReanimator = false) {
+            ['patient-name', 'operation-type', 'doctor-name', 'has-consent'].forEach(id => {
+                document.getElementById(id).disabled = isReadOnly;
+            });
+            document.getElementById('reanimator-approved').disabled = !isReanimator;
+            document.getElementById('btn-save-op').style.display = isReadOnly ? 'none' : 'block';
+        }
+
+        // 💾 Сохранение записи операции в Firestore + Уведомление в Telegram
+        async function saveOperation() {
+            const patientName = document.getElementById('patient-name').value.trim();
+            const operationType = document.getElementById('operation-type').value.trim();
+            const doctorName = document.getElementById('doctor-name').value.trim();
+            const hasConsent = document.getElementById('has-consent').checked;
+            const reanimatorApproved = document.getElementById('reanimator-approved').checked;
+
+            if (!patientName || !operationType || !doctorName) {
+                return showToast('⚠️ Barcha maydonlarni to‘ldiring!');
+            }
+
+            let startStr, endStr;
+            if (currentEventData) {
+                startStr = currentEventData.startStr;
+                endStr = currentEventData.endStr;
+            } else {
+                const startDate = new Date(selectedTimeInfo.startStr);
+                const endDate = new Date(startDate.getTime() + selectedDurationMinutes * 60000);
+                startStr = startDate.toISOString();
+                endStr = endDate.toISOString();
+            }
+
+            // Проверка превышения времени 21:00
+            const checkEnd = new Date(endStr);
+            if (checkEnd.getHours() > 21 || (checkEnd.getHours() === 21 && checkEnd.getMinutes() > 0)) {
+                return showToast('⚠️ Operatsiya 21:00 dan oshib ketmoqda!');
+            }
+
+            const isNew = !currentEventData;
+            const eventPayload = {
+                patientName,
+                operationType,
+                doctorName,
+                hasConsent,
+                reanimatorApproved,
+                start: startStr,
+                end: endStr,
+                userId: isNew ? user.id : currentEventData.userId
+            };
+
+            try {
+                if (isNew) {
+                    await db.collection("events").add(eventPayload);
+                } else {
+                    await db.collection("events").doc(currentEventData.id).update(eventPayload);
+                }
+
+                closeModal('modal-overlay');
+                showToast('✅ Operatsiya saqlandi');
+
+                // ✈️ Отправка уведомления в Telegram-группу
+                const newStart = new Date(startStr);
+                const newEnd = new Date(endStr);
+                const dateFormatted = formatTashkentTime(newStart, { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const timeStartFormatted = formatTashkentTime(newStart, { hour: '2-digit', minute: '2-digit' });
+                const timeEndFormatted = formatTashkentTime(newEnd, { hour: '2-digit', minute: '2-digit' });
+
+                let notifyText = '';
+                if (isNew) {
+                    notifyText = `🩺 <b>YANGI OPERATSIYA ARIZASI</b>\n\n` +
+                                 `📅 <b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
+                                 `👤 <b>Bemor:</b> ${patientName}\n` +
+                                 `🔪 <b>Operatsiya:</b> ${operationType}\n` +
+                                 `👨‍⚕️ <b>Shifokor:</b> ${doctorName}\n` +
+                                 `📝 <b>Rozilik:</b> ${hasConsent ? 'Mavjud ✅' : 'Yo‘q ❌'}\n` +
+                                 `💉 <b>Reanimatolog:</b> ${reanimatorApproved ? 'Ruxsat berildi ✅' : 'Kutilmoqda ⏳'}`;
+                } else {
+                    const reanimatorChanged = currentEventData && !currentEventData.reanimatorApproved && reanimatorApproved;
+                    if (reanimatorChanged) {
+                        notifyText = `✅ <b>REANIMATOLOG RUXSATI OLINDI!</b>\n\n` +
+                                     `📅 <b>Sana:</b> ${dateFormatted} (${timeStartFormatted})\n` +
+                                     `👤 <b>Bemor:</b> ${patientName}\n` +
+                                     `🔪 <b>Operatsiya:</b> ${operationType}`;
+                    } else {
+                        notifyText = `✏️ <b>OPERATSIYA ARIZASI YANGILANDI</b>\n\n` +
+                                     `📅 <b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
+                                     `👤 <b>Bemor:</b> ${patientName}\n` +
+                                     `🔪 <b>Operatsiya:</b> ${operationType}\n` +
+                                     `👨‍⚕️ <b>Shifokor:</b> ${doctorName}`;
+                    }
+                }
+
+                sendTelegramGroupNotification(notifyText);
+            } catch (err) {
+                showToast('⚠️ Saqlashda xatolik yuz berdi');
+            }
+        }
+
+        function openConfirmDeleteModal() {
+            document.getElementById('modal-overlay').style.display = 'none';
+            document.getElementById('confirm-modal-overlay').style.display = 'flex';
+        }
+
+        function openReasonModal() {
+            document.getElementById('confirm-modal-overlay').style.display = 'none';
+            document.getElementById('cancel-reason-input').value = '';
+            document.getElementById('reason-modal-overlay').style.display = 'flex';
+        }
+
+        // 🗑️ Удаление из Firestore + Уведомление
+        async function submitDeleteWithReason() {
+            if (!currentEventData) return;
+            const reason = document.getElementById('cancel-reason-input').value.trim();
+
+            if (!reason) {
+                return showToast('⚠️ Sababini ko‘rsating!');
+            }
+
+            try {
+                await db.collection("events").doc(currentEventData.id).delete();
+                closeModal('reason-modal-overlay');
+                showToast('🗑️ Ariza bekor qilindi');
+
+                const dateFormatted = formatTashkentTime(currentEventData.startStr, { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const timeFormatted = formatTashkentTime(currentEventData.startStr, { hour: '2-digit', minute: '2-digit' });
+
+                sendTelegramGroupNotification(
+                    `❌ <b>OPERATSIYA BEKOR QILINDI / O‘CHIRILDI</b>\n\n` +
+                    `📅 <b>Rejalashtirilgan edi:</b> ${dateFormatted} soat ${timeFormatted} da\n` +
+                    `👤 <b>Bemor:</b> ${currentEventData.patientName}\n` +
+                    `🔪 <b>Operatsiya:</b> ${currentEventData.operationType}\n` +
+                    `👨‍⚕️ <b>Shifokor:</b> ${currentEventData.doctorName}\n` +
+                    `📝 <b>Bekor qilish sababi:</b> ${reason}`
+                );
+            } catch (err) {
+                showToast('⚠️ Bekor qilishda xatolik');
+            }
+        }
+
+        function sendTelegramGroupNotification(text) {
+            if (!BOT_TOKEN || !GROUP_CHAT_ID) return;
+            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: GROUP_CHAT_ID,
+                    text: text,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [[{ text: "🏥 Operatsiyalar rejasini ochish", url: "https://t.me/VitaMed_planner_bot?startapp" }]]
+                    }
+                })
+            }).catch(e => console.error(e));
+        }
+
+        function resetForm() {
+            document.getElementById('patient-name').value = '';
+            document.getElementById('operation-type').value = '';
+            document.getElementById('doctor-name').value = '';
+            document.getElementById('has-consent').checked = false;
+            document.getElementById('reanimator-approved').checked = false;
+            
+            selectedDurationMinutes = 60;
+            document.querySelectorAll('.duration-btn').forEach((b, idx) => {
+                if (idx === 0) b.classList.add('selected');
+                else b.classList.remove('selected');
+            });
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            if (calendar) calendar.unselect();
+        }
+
+        // 💬 Чат в реальном времени через Firestore
+        function initChatListener() {
+            db.collection("chat").orderBy("timestamp", "asc").onSnapshot((snapshot) => {
+                const box = document.getElementById('chat-box');
+                box.innerHTML = '';
+                snapshot.forEach((doc) => {
+                    const msg = doc.data();
+                    const isMy = String(msg.senderId) === String(user.id);
+                    const timeStr = msg.timestamp ? formatTashkentTime(msg.timestamp.toDate(), { hour: '2-digit', minute: '2-digit' }) : '';
+                    
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = isMy ? 'msg my' : 'msg';
+                    msgDiv.innerHTML = `
+                        <div class="msg-header"><span>${isMy ? 'Siz' : msg.senderName}</span><span>${timeStr}</span></div>
+                        <div class="msg-text">${escapeHtml(msg.text || '')}</div>
+                    `;
+                    box.appendChild(msgDiv);
+                });
+                box.scrollTop = box.scrollHeight;
+            });
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('msg-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            db.collection("chat").add({
+                senderId: user.id,
+                senderName: user.first_name,
+                text: text,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            input.value = '';
+        }
+
+        function switchTab(screenId, btn) {
+            currentScreen = screenId;
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.action-btn').forEach(b => {
+                if (b.id.startsWith('tab-btn')) b.classList.remove('active');
+            });
+
+            document.getElementById(screenId).classList.add('active');
+            if (btn) btn.classList.add('active');
+
+            const dateNav = document.getElementById('date-nav-bar');
+
+            if (screenId === 'calendar-screen') {
+                dateNav.style.display = 'flex';
+                if (calendar) setTimeout(() => calendar.updateSize(), 100);
+            } else {
+                dateNav.style.display = 'none';
+            }
+        }
+
+        function escapeHtml(text) { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    </script>
+</body>
+</html>
