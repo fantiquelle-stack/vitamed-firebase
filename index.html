@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="uz">
 <head>
@@ -378,10 +379,10 @@
 
     <script>
         // ⚙️ НАСТРОЙКИ TELEGRAM И FIREBASE
-        const BOT_TOKEN = "8908847883:AAFmCwUCaSI1YvGGEtjmwElEL63_MDX0Y0I";
-        const GROUP_CHAT_ID = "-1003576288707";
-        const REANIMATOR_IDS = ["963965528", "987654321"];
-        const HEAD_NURSE_IDS = ["361373685"];
+        const BOT_TOKEN = "8908847883:AAFmCwUCaSI1YvGGEtjmwElEL63_MDX0Y0I"; // Ваш токен от BotFather
+        const GROUP_CHAT_ID = "-1003576288707";                             // ID вашей группы
+        const REANIMATOR_IDS = ["963965528", "987654321"];                  // Telegram ID реаниматологов через запятую
+        const HEAD_NURSE_IDS = ["361373685"];                               // Telegram ID старшей медсестры через запятую
 
         const firebaseConfig = {
              apiKey: "AIzaSyBkx7_eqewRNeluJ7gEafEEpEegMH_Bygw",
@@ -519,6 +520,7 @@
                 },
 
                 select: function(info) {
+                    // Реаниматолог не может создавать новые заявки
                     if (isReanimator) {
                         calendar.unselect();
                         return showToast('⚠️ Reanimatolog yangi ariza yarata olmaydi!');
@@ -536,6 +538,7 @@
                     resetForm();
                     
                     if (isHeadNurse) {
+                        // Старшая медсестра только создает генеральную уборку
                         document.getElementById('modal-title').innerText = "General уборка arizasi";
                         document.getElementById('op-form-body').style.display = 'none';
                         document.getElementById('cleaning-form-body').style.display = 'block';
@@ -620,43 +623,33 @@
                 snapshot.forEach((doc) => {
                     const data = doc.data();
                     let color = '#ec4899'; // 4. По умолчанию розовый (хирург без отметок)
-                    let statusText = '';
+                    let icons = '';
 
                     if (data.isCleaning) {
                         color = data.cleaningDone ? '#10b981' : '#64748b';
-                        statusText = `[Uborka: ${data.cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}]`;
+                        icons = '🧹';
                     } else {
-                        // 4. Логика раскраски:
-                        // 1) Новая заявка хирурга без отметок -> Розовый
-                        // 2) После отметки "Согласие пациента" -> Желтый
-                        // 3) После отметки "Реаниматолог" -> Зеленый
-                        // 4) У старшей медсестры цвет не меняется
-                        if (data.reanimatorApproved) {
-                            color = '#10b981'; // Зеленый
+                        // 4. Логика раскраски по этапам:
+                        if (data.opblockReady) {
+                            color = '#10b981'; // 1. Зеленый (оперблок готов)
+                        } else if (data.reanimatorApproved) {
+                            color = '#fed7aa'; // 3. Светло-оранжевый (подтверждение реаниматолога)
                         } else if (data.hasConsent) {
-                            color = '#eab308'; // Желтый
+                            color = '#eab308'; // 4. Желтый (согласие пациента)
                         } else {
-                            color = '#ec4899'; // Розовый
+                            color = '#ec4899'; // 4. Розовый (новая заявка хирурга)
                         }
-
-                        // 2. Статусы в самом календаре текстом вместо значков/эмодзи
-                        const consentTxt = data.hasConsent ? 'Rozilik: Bor' : 'Rozilik: Yo‘q';
-                        const reanimatorTxt = data.reanimatorApproved ? 'Reanimatolog: Ruxsat' : 'Reanimatolog: Kutilmoqda';
-                        const opblockTxt = data.opblockReady ? 'Operblok: Tayyor' : 'Operblok: Tayyor emas';
-                        
-                        statusText = `[${consentTxt} | ${reanimatorTxt} | ${opblockTxt}]`;
+                        icons = `${data.hasConsent ? '📝' : '❌'}${data.reanimatorApproved ? '💉' : '⏳'}${data.opblockReady ? '✅' : ''}`;
                     }
 
                     localEventsCache.push({
                         id: doc.id,
-                        title: data.isCleaning 
-                            ? `${statusText} General уборка | ${data.responsiblePerson || ''}` 
-                            : `${statusText} ${data.operationType} | ${data.patientName}`,
+                        title: data.isCleaning ? `${icons} General уборка | ${data.responsiblePerson || ''}` : `${icons} ${data.operationType} | ${data.patientName}`,
                         start: data.start,
                         end: data.end,
                         backgroundColor: color,
                         borderColor: color,
-                        textColor: (color === '#eab308') ? '#0f172a' : '#ffffff',
+                        textColor: (color === '#fed7aa' || color === '#eab308') ? '#0f172a' : '#ffffff',
                         extendedProps: data
                     });
                 });
@@ -667,15 +660,8 @@
         function renderFilteredEvents() {
             if (!calendar) return;
             calendar.removeAllEvents();
-
-            // 1. Медсестре при фильтрации показывается либо только её уборки, либо все уборки и операции
             if (filterOnlyMyOperations) {
-                const filtered = localEventsCache.filter(e => {
-                    if (isHeadNurse) {
-                        return e.extendedProps.isCleaning && String(e.extendedProps.userId) === String(user.id);
-                    }
-                    return String(e.extendedProps.userId) === String(user.id);
-                });
+                const filtered = localEventsCache.filter(e => String(e.extendedProps.userId) === String(user.id));
                 calendar.addEventSource(filtered);
             } else {
                 calendar.addEventSource(localEventsCache);
@@ -697,11 +683,11 @@
             if (filterOnlyMyOperations) {
                 filterBtn.innerText = 'Mening arizalarim';
                 filterBtn.classList.add('active');
-                showToast(isHeadNurse ? 'Faqat sizning uborkalaringiz ko‘rsatilmoqda' : 'Faqat sizning operatsiyalaringiz ko‘rsatilmoqda');
+                showToast('Faqat sizning operatsiyalaringiz ko‘rsatilmoqda');
             } else {
                 filterBtn.innerText = 'Barcha arizalar';
                 filterBtn.classList.remove('active');
-                showToast('Barcha arizalar ko‘rsatilmoqda');
+                showToast('Barcha operatsiyalar ko‘rsatilmoqda');
             }
 
             renderFilteredEvents();
@@ -769,13 +755,13 @@
                         planText += `${idx + 1}. [${startTime} - ${endTime}] 🧹 GENERAL UBORKA\n`;
                         planText += `   Mas'ul: ${props.responsiblePerson}\n`;
                         planText += `   Sanitarkalar: ${props.cleanersNames}\n`;
-                        planText += `   Holat: ${props.cleaningDone ? 'Bajarildi' : 'Bajarilmadi'}\n`;
+                        planText += `   Holat: ${props.cleaningDone ? 'Bajarildi ✅' : 'Bajarilmadi ⏳'}\n`;
                     } else {
                         planText += `${idx + 1}. [${startTime} - ${endTime}]\n`;
                         planText += `   Bemor: ${props.patientName}\n`;
                         planText += `   Operatsiya: ${props.operationType}\n`;
                         planText += `   Shifokor: ${props.doctorName}\n`;
-                        planText += `   Rozilik: ${props.hasConsent ? 'Mavjud' : 'YO‘Q'} | Reanimatolog: ${props.reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'} | Operblok: ${props.opblockReady ? 'Tayyor' : 'Tayyor emas'}\n`;
+                        planText += `   Rozilik: ${props.hasConsent ? 'Mavjud ✅' : 'YO‘Q ❌'} | Reanimatolog: ${props.reanimatorApproved ? 'Ruxsat berildi ✅' : 'Kutilmoqda ⏳'} | Operblok: ${props.opblockReady ? 'Tayyor ✅' : 'Tayyor emas ⏳'}\n`;
                     }
                     planText += `-----------------------------------\n`;
                 });
@@ -808,7 +794,6 @@
 
             if (!currentEventData) { // Создание новой заявки
                 if (isHeadNurse) {
-                    // 1. У медсестры при создании заявки поля ввода фамилий АКТИВНЫ
                     document.getElementById('responsible-person').disabled = false;
                     document.getElementById('cleaners-names').disabled = false;
                     document.getElementById('cleaning-done').disabled = false;
@@ -822,15 +807,17 @@
                 }
             } else { // Редактирование существующих
                 if (isHeadNurse) {
+                    // 1. Старшая медсестра только нажимает чекбокс "оперблок готов", другие параметры ей недоступны
                     document.getElementById('opblock-ready').disabled = false;
                     if (isCleaning) {
-                        // 1. У медсестры в её заявке на уборку поля ввода фамилий АКТИВНЫ
+                        // 2. В заявке на уборку чекбокс доступен только медсестре
                         document.getElementById('responsible-person').disabled = !isAuthor;
                         document.getElementById('cleaners-names').disabled = !isAuthor;
                         document.getElementById('cleaning-done').disabled = false;
                     }
                     canSave = true;
                 } else if (isReanimator) {
+                    // 3. Реаниматолог только чекбокс разрешение на операцию
                     if (!isCleaning) {
                         document.getElementById('reanimator-approved').disabled = false;
                         canSave = true;
@@ -955,28 +942,27 @@
                 const timeStartFormatted = formatTashkentTime(newStart, { hour: '2-digit', minute: '2-digit' });
                 const timeEndFormatted = formatTashkentTime(newEnd, { hour: '2-digit', minute: '2-digit' });
 
-                // 2. В уведомлениях в группу статусы расписаны текстом без значков/эмодзи
                 let notifyText = '';
                 if (isCleaning) {
-                    notifyText = `<b>GENERAL UBORKA ARIZASI</b>\n\n` +
-                                 `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
-                                 `<b>Mas'ul:</b> ${responsiblePerson}\n` +
-                                 `<b>Sanitarkalar:</b> ${cleanersNames}\n` +
-                                 `<b>Holat:</b> ${cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}`;
+                    notifyText = `🧹 <b>GENERAL UBORKA ARIZASI</b>\n\n` +
+                                 `📅 <b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
+                                 `👤 <b>Mas'ul:</b> ${responsiblePerson}\n` +
+                                 `🧹 <b>Sanitarkalar:</b> ${cleanersNames}\n` +
+                                 `✅ <b>Holat:</b> ${cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}`;
                 } else if (isNew) {
-                    notifyText = `<b>YANGI OPERATSIYA ARIZASI</b>\n\n` +
-                                 `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
-                                 `<b>Bemor:</b> ${patientName}\n` +
-                                 `<b>Operatsiya:</b> ${operationType}\n` +
-                                 `<b>Shifokor:</b> ${doctorName}\n` +
-                                 `<b>Rozilik:</b> ${hasConsent ? 'Mavjud' : 'Yo‘q'}\n` +
-                                 `<b>Reanimatolog:</b> ${reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'}`;
+                    notifyText = `🩺 <b>YANGI OPERATSIYA ARIZASI</b>\n\n` +
+                                 `📅 <b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
+                                 `👤 <b>Bemor:</b> ${patientName}\n` +
+                                 `🔪 <b>Operatsiya:</b> ${operationType}\n` +
+                                 `👨‍⚕️ <b>Shifokor:</b> ${doctorName}\n` +
+                                 `📝 <b>Rozilik:</b> ${hasConsent ? 'Mavjud ✅' : 'Yo‘q ❌'}\n` +
+                                 `💉 <b>Reanimatolog:</b> ${reanimatorApproved ? 'Ruxsat berildi ✅' : 'Kutilmoqda ⏳'}`;
                 } else {
-                    notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI</b>\n\n` +
-                                 `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
-                                 `<b>Bemor:</b> ${eventPayload.patientName}\n` +
-                                 `<b>Operatsiya:</b> ${eventPayload.operationType}\n` +
-                                 `<b>Rozilik:</b> ${eventPayload.hasConsent ? 'Bor' : 'Yo‘q'} | <b>Reanimatolog:</b> ${eventPayload.reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'} | <b>Operblok:</b> ${eventPayload.opblockReady ? 'Tayyor' : 'Tayyor emas'}`;
+                    notifyText = `✏️ <b>OPERATSIYA ARIZASI YANGILANDI</b>\n\n` +
+                                 `📅 <b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
+                                 `👤 <b>Bemor:</b> ${eventPayload.patientName}\n` +
+                                 `🔪 <b>Operatsiya:</b> ${eventPayload.operationType}\n` +
+                                 `📝 <b>Rozilik:</b> ${eventPayload.hasConsent ? '✅' : '❌'} | 💉 <b>Reanimatolog:</b> ${eventPayload.reanimatorApproved ? '✅' : '⏳'} | 🏥 <b>Operblok:</b> ${eventPayload.opblockReady ? '✅' : '⏳'}`;
                 }
 
                 sendTelegramGroupNotification(notifyText);
@@ -985,7 +971,7 @@
             }
         }
 
-        // Приостановка подготовки реаниматологом
+        // 3. Функция приостановки подготовки реаниматологом
         function openPauseModal() {
             document.getElementById('modal-overlay').style.display = 'none';
             document.getElementById('pause-reason-input').value = '';
@@ -1010,11 +996,11 @@
 
                 const dateFormatted = formatTashkentTime(currentEventData.startStr, { day: '2-digit', month: '2-digit', year: 'numeric' });
                 sendTelegramGroupNotification(
-                    `<b>OPERATSIYA TAYYORGARLIGI PRIONASTANOVLENA</b>\n\n` +
-                    `<b>Sana:</b> ${dateFormatted}\n` +
-                    `<b>Bemor:</b> ${currentEventData.patientName}\n` +
-                    `<b>Operatsiya:</b> ${currentEventData.operationType}\n` +
-                    `<b>Reanimatolog sababi:</b> ${reason}`
+                    `⏸ <b>OPERATSIYA TAYYORGARLIGI PRIONASTANOVLENA</b>\n\n` +
+                    `📅 <b>Sana:</b> ${dateFormatted}\n` +
+                    `👤 <b>Bemor:</b> ${currentEventData.patientName}\n` +
+                    `🔪 <b>Operatsiya:</b> ${currentEventData.operationType}\n` +
+                    `👨‍⚕️ <b>Reanimatolog sababi:</b> ${reason}`
                 );
             } catch (err) {
                 showToast('⚠️ Xatolik yuz berdi');
@@ -1050,12 +1036,12 @@
                 const timeFormatted = formatTashkentTime(currentEventData.startStr, { hour: '2-digit', minute: '2-digit' });
 
                 sendTelegramGroupNotification(
-                    `<b>OPERATSIYA BEKOR QILINDI / O‘CHIRILDI</b>\n\n` +
-                    `<b>Rejalashtirilgan edi:</b> ${dateFormatted} soat ${timeFormatted} da\n` +
-                    `<b>Bemor:</b> ${currentEventData.patientName}\n` +
-                    `<b>Operatsiya:</b> ${currentEventData.operationType}\n` +
-                    `<b>Shifokor:</b> ${currentEventData.doctorName}\n` +
-                    `<b>Bekor qilish sababi:</b> ${reason}`
+                    `❌ <b>OPERATSIYA BEKOR QILINDI / O‘CHIRILDI</b>\n\n` +
+                    `📅 <b>Rejalashtirilgan edi:</b> ${dateFormatted} soat ${timeFormatted} da\n` +
+                    `👤 <b>Bemor:</b> ${currentEventData.patientName}\n` +
+                    `🔪 <b>Operatsiya:</b> ${currentEventData.operationType}\n` +
+                    `👨‍⚕️ <b>Shifokor:</b> ${currentEventData.doctorName}\n` +
+                    `📝 <b>Bekor qilish sababi:</b> ${reason}`
                 );
             } catch (err) {
                 showToast('⚠️ Bekor qilishda xatolik');
@@ -1072,7 +1058,7 @@
                     text: text,
                     parse_mode: 'HTML',
                     reply_markup: {
-                        inline_keyboard: [[{ text: "Operatsiyalar rejasini ochish", url: "https://t.me/VitaMed_planner_bot?startapp" }]]
+                        inline_keyboard: [[{ text: "🏥 Operatsiyalar rejasini ochish", url: "https://t.me/VitaMed_planner_bot?startapp" }]]
                     }
                 })
             }).catch(e => console.error(e));
