@@ -65,13 +65,13 @@
         }
         
         .current-date-picker-wrap {
-            position: relative; display: flex; align-items: center; justify-content: center;
+            position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
         .current-date-title {
-            font-size: 14px; font-weight: 700; color: var(--text-main); cursor: pointer; text-decoration: underline; text-decoration-style: dotted;
+            font-size: 14px; font-weight: 700; color: var(--text-main); text-decoration: underline; text-decoration-style: dotted; pointer-events: none;
         }
         .hidden-date-input {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.01; cursor: pointer;
         }
 
         .screen { display: none; flex: 1; padding: 6px; overflow-y: auto; }
@@ -218,7 +218,7 @@
     <div id="app-content">
         <div class="date-navigation-bar" id="date-nav-bar">
             <button class="nav-arrow-btn" onclick="navigateDay(-1)">❮</button>
-            <div class="current-date-picker-wrap">
+            <div class="current-date-picker-wrap" onclick="openDatePicker()">
                 <span class="current-date-title" id="current-date-display">...</span>
                 <input type="date" class="hidden-date-input" id="manual-date-picker" onchange="onManualDateSelect(this.value)">
             </div>
@@ -376,8 +376,8 @@
         // ⚙️ НАСТРОЙКИ TELEGRAM И FIREBASE
         const BOT_TOKEN = "8908847883:AAFmCwUCaSI1YvGGEtjmwElEL63_MDX0Y0I";
         const GROUP_CHAT_ID = "-1003576288707";
-        const ADMIN_IDS = ["963965528"]; // Укажите Telegram ID администраторов
-        const REANIMATOR_IDS = ["963965525", "987654321"];
+        const ADMIN_IDS = ["123456789"]; 
+        const REANIMATOR_IDS = ["963965528", "987654321"];
         const HEAD_NURSE_IDS = ["361373685"];
 
         const firebaseConfig = {
@@ -416,7 +416,6 @@
             verifyGroupAccess();
         });
 
-        // 🔒 ПРОВЕРКА СОСТОИТ ЛИ ПОЛЬЗОВАТЕЛЬ В TELEGRAM-ГРУППЕ
         async function verifyGroupAccess() {
             if (!user.id || user.id === 0) {
                 showAccessDenied();
@@ -449,7 +448,6 @@
             document.getElementById('access-denied').style.display = 'flex';
         }
 
-        // 🧹 АВТОМАТИЧЕСКАЯ ОЧИСТКА БАЗЫ
         async function autoCleanOldData() {
             try {
                 const now = Date.now();
@@ -492,6 +490,18 @@
                 timeZone: 'Asia/Tashkent',
                 ...options
             });
+        }
+
+        function openDatePicker() {
+            const dateInput = document.getElementById('manual-date-picker');
+            if (!dateInput) return;
+
+            if (typeof dateInput.showPicker === 'function') {
+                dateInput.showPicker();
+            } else {
+                dateInput.focus();
+                dateInput.click();
+            }
         }
 
         function initCalendar() {
@@ -538,14 +548,14 @@
                         document.getElementById('op-form-body').style.display = 'none';
                         document.getElementById('cleaning-form-body').style.display = 'block';
                         selectedDurationMinutes = 240;
-                        setFormReadOnly(false);
+                        setFormReadOnly(false, false, isReanimator, isHeadNurse, true);
                     } else {
                         document.getElementById('modal-title').innerText = "Yangi ariza";
                         document.getElementById('op-form-body').style.display = 'block';
                         document.getElementById('cleaning-form-body').style.display = 'none';
                         document.getElementById('duration-group').style.display = 'block';
                         selectedDurationMinutes = 60;
-                        setFormReadOnly(false);
+                        setFormReadOnly(false, false, isReanimator, isHeadNurse, false);
                     }
 
                     document.getElementById('btn-delete-op').style.display = 'none';
@@ -610,7 +620,6 @@
             calendar.render();
             updateCurrentDateDisplay(calendar.getDate());
 
-            // 🔄 Обновления Firestore в реальном времени
             db.collection("events").onSnapshot((snapshot) => {
                 localEventsCache = [];
                 snapshot.forEach((doc) => {
@@ -623,11 +632,11 @@
                         statusText = `[Uborka: ${data.cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}]`;
                     } else {
                         if (data.reanimatorApproved) {
-                            color = '#10b981'; // Зеленый
+                            color = '#10b981';
                         } else if (data.hasConsent) {
-                            color = '#eab308'; // Желтый
+                            color = '#eab308';
                         } else {
-                            color = '#ec4899'; // Розовый
+                            color = '#ec4899';
                         }
 
                         const consentTxt = data.hasConsent ? 'Rozilik: Bor' : 'Rozilik: Yo‘q';
@@ -782,7 +791,7 @@
             showToast('📋 Kun rejasi nusxalandi!');
         }
 
-        // Настройка доступности полей по ролям
+        // Обновленная функция управления доступом к полям
         function setFormReadOnly(isDefaultReadOnly, isAuthor = false, isReanimatorRole = false, isHeadNurseRole = false, isCleaning = false) {
             ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names'].forEach(id => {
                 document.getElementById(id).disabled = true;
@@ -792,7 +801,7 @@
 
             let canSave = false;
 
-            if (isAdmin) { // Администратор имеет полный доступ ко всем полям
+            if (isAdmin) {
                 ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names', 'reanimator-approved', 'cleaning-done'].forEach(id => {
                     document.getElementById(id).disabled = false;
                 });
@@ -812,7 +821,7 @@
                 }
             } else { // Редактирование существующих
                 if (isCleaning) {
-                    if (isHeadNurseRole && isAuthor) {
+                    if (isHeadNurseRole && (isAuthor || String(currentEventData.userId) === String(user.id))) {
                         document.getElementById('responsible-person').disabled = false;
                         document.getElementById('cleaners-names').disabled = false;
                         document.getElementById('cleaning-done').disabled = false;
@@ -835,7 +844,6 @@
             document.getElementById('btn-save-op').style.display = canSave ? 'block' : 'none';
         }
 
-        // 💾 Сохранение записи операции / уборки в Firestore + Уведомление в Telegram
         async function saveOperation() {
             const isCleaning = (isHeadNurse && (!currentEventData || currentEventData.isCleaning)) && !isAdmin;
 
