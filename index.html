@@ -40,7 +40,19 @@
             overscroll-behavior: none;
         }
 
-        #app-content { display: flex; flex-direction: column; height: 100%; position: relative; }
+        #access-denied { 
+            display: none; 
+            height: 100vh;
+            width: 100vw;
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center; 
+            text-align: center; 
+            padding: 20px; 
+            background: var(--bg-color);
+        }
+
+        #app-content { display: none; flex-direction: column; height: 100%; position: relative; }
 
         .date-navigation-bar {
             display: flex; align-items: center; justify-content: space-between;
@@ -194,6 +206,12 @@
 </head>
 <body>
 
+    <!-- ЭКРАН ОШИБКИ ДОСТУПА -->
+    <div id="access-denied">
+        <h2 style="color: var(--danger); font-size: 22px; margin-bottom: 8px;">Ruxsat cheklangan 🚫</h2>
+        <p style="color: var(--text-muted); font-size: 15px; margin: 0;">Ushbu tizimdan foydalanish uchun Telegram guruhimiz a’zosi bo‘lishingiz kerak.</p>
+    </div>
+
     <div class="toast-notification" id="toast"></div>
 
     <div id="app-content">
@@ -345,10 +363,41 @@
         let localEventsCache = [];
 
         document.addEventListener('DOMContentLoaded', () => {
-            autoCleanOldData(); // 🧹 Авто-очистка устаревших записей при запуске
-            initCalendar();
-            initChatListener();
+            verifyGroupAccess(); // 🔒 Строгая проверка прав при открытии
         });
+
+        // 🔒 ПРОВЕРКА СОСТОИТ ЛИ ПОЛЬЗОВАТЕЛЬ В TELEGRAM-ГРУППЕ
+        async function verifyGroupAccess() {
+            if (!user.id || user.id === 0) {
+                showAccessDenied();
+                return;
+            }
+
+            try {
+                const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${GROUP_CHAT_ID}&user_id=${user.id}`);
+                const data = await res.json();
+                const status = data.result?.status;
+
+                if (data.ok && ['creator', 'administrator', 'member'].includes(status)) {
+                    document.getElementById('access-denied').style.display = 'none';
+                    document.getElementById('app-content').style.display = 'flex';
+                    
+                    autoCleanOldData();
+                    initCalendar();
+                    initChatListener();
+                } else {
+                    showAccessDenied();
+                }
+            } catch (err) {
+                console.error("Ошибка проверки прав:", err);
+                showAccessDenied();
+            }
+        }
+
+        function showAccessDenied() {
+            document.getElementById('app-content').style.display = 'none';
+            document.getElementById('access-denied').style.display = 'flex';
+        }
 
         // 🧹 АВТОМАТИЧЕСКАЯ ОЧИСТКА БАЗЫ (Чат: 1 день, Операции: 1 месяц)
         async function autoCleanOldData() {
@@ -360,12 +409,12 @@
                 const oneDayAgoTimestamp = firebase.firestore.Timestamp.fromDate(oneDayAgo);
                 const oneMonthAgoIso = oneMonthAgo.toISOString();
 
-                // 1. Очистка сообщений чата старше 1 дня
+                // 1. Сообщения чата старше 1 дня
                 const oldChatDocs = await db.collection("chat")
                     .where("timestamp", "<", oneDayAgoTimestamp)
                     .get();
 
-                // 2. Очистка прошлых операций старше 1 месяца (30 дней)
+                // 2. Операции старше 1 месяца (30 дней)
                 const oldEventDocs = await db.collection("events")
                     .where("start", "<", oneMonthAgoIso)
                     .get();
