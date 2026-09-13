@@ -314,8 +314,7 @@
         const GROUP_CHAT_ID = "-1003576288707";                             // ID вашей группы
         const REANIMATOR_IDS = ["963965528", "987654321"];                  // Telegram ID реаниматологов через запятую
 
-
-       const firebaseConfig = {
+        const firebaseConfig = {
              apiKey: "AIzaSyBkx7_eqewRNeluJ7gEafEEpEegMH_Bygw",
              authDomain: "vitamed-planner.firebaseapp.com",
              projectId: "vitamed-planner",
@@ -346,9 +345,44 @@
         let localEventsCache = [];
 
         document.addEventListener('DOMContentLoaded', () => {
+            autoCleanOldData(); // 🧹 Авто-очистка устаревших записей при запуске
             initCalendar();
             initChatListener();
         });
+
+        // 🧹 АВТОМАТИЧЕСКАЯ ОЧИСТКА БАЗЫ (Чат: 1 день, Операции: 1 месяц)
+        async function autoCleanOldData() {
+            try {
+                const now = Date.now();
+                const oneDayAgo = new Date(now - 1 * 24 * 60 * 60 * 1000);
+                const oneMonthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+
+                const oneDayAgoTimestamp = firebase.firestore.Timestamp.fromDate(oneDayAgo);
+                const oneMonthAgoIso = oneMonthAgo.toISOString();
+
+                // 1. Очистка сообщений чата старше 1 дня
+                const oldChatDocs = await db.collection("chat")
+                    .where("timestamp", "<", oneDayAgoTimestamp)
+                    .get();
+
+                // 2. Очистка прошлых операций старше 1 месяца (30 дней)
+                const oldEventDocs = await db.collection("events")
+                    .where("start", "<", oneMonthAgoIso)
+                    .get();
+
+                if (!oldChatDocs.empty || !oldEventDocs.empty) {
+                    const batch = db.batch();
+                    
+                    oldChatDocs.forEach(doc => batch.delete(doc.ref));
+                    oldEventDocs.forEach(doc => batch.delete(doc.ref));
+
+                    await batch.commit();
+                    console.log("🧹 База очищена: сообщения чата (>1 дня) и операции (>1 месяца) удалены.");
+                }
+            } catch (err) {
+                console.error("Ошибка авто-очистки базы:", err);
+            }
+        }
 
         function showToast(text) {
             const toast = document.getElementById('toast');
