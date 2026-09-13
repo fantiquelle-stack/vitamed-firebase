@@ -283,10 +283,6 @@
                     <input type="checkbox" id="reanimator-approved">
                     <label for="reanimator-approved" id="reanimator-label">Reanimatolog ruxsati</label>
                 </div>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="opblock-ready">
-                    <label for="opblock-ready">Operblok tayyor</label>
-                </div>
             </div>
 
             <!-- Форма генеральной уборки (для старшей медсестры) -->
@@ -380,7 +376,8 @@
         // ⚙️ НАСТРОЙКИ TELEGRAM И FIREBASE
         const BOT_TOKEN = "8908847883:AAFmCwUCaSI1YvGGEtjmwElEL63_MDX0Y0I";
         const GROUP_CHAT_ID = "-1003576288707";
-        const REANIMATOR_IDS = ["963965528", "987654321"];
+        const ADMIN_IDS = ["963965528"]; // Укажите Telegram ID администраторов
+        const REANIMATOR_IDS = ["963965525", "987654321"];
         const HEAD_NURSE_IDS = ["361373685"];
 
         const firebaseConfig = {
@@ -406,6 +403,7 @@
         let calendar = null;
         let selectedTimeInfo = null;
         let currentEventData = null;
+        let isAdmin = ADMIN_IDS.includes(String(user.id));
         let isReanimator = REANIMATOR_IDS.includes(String(user.id));
         let isHeadNurse = HEAD_NURSE_IDS.includes(String(user.id));
         let currentScreen = 'calendar-screen';
@@ -519,14 +517,14 @@
                 },
 
                 select: function(info) {
-                    if (isReanimator) {
+                    if (isReanimator && !isAdmin) {
                         calendar.unselect();
                         return showToast('⚠️ Reanimatolog yangi ariza yarata olmaydi!');
                     }
 
                     const todayStr = new Date().toISOString().split('T')[0];
                     const selectedDateStr = info.startStr.split('T')[0];
-                    if (selectedDateStr < todayStr) {
+                    if (selectedDateStr < todayStr && !isAdmin) {
                         calendar.unselect();
                         return showToast('⚠️ O‘tgan kunlarga ariza topshirish taqiqlangan!');
                     }
@@ -535,7 +533,7 @@
                     selectedTimeInfo = info;
                     resetForm();
                     
-                    if (isHeadNurse) {
+                    if (isHeadNurse && !isAdmin) {
                         document.getElementById('modal-title').innerText = "General уборка arizasi";
                         document.getElementById('op-form-body').style.display = 'none';
                         document.getElementById('cleaning-form-body').style.display = 'block';
@@ -570,7 +568,6 @@
                         doctorName: props.doctorName,
                         hasConsent: props.hasConsent,
                         reanimatorApproved: props.reanimatorApproved,
-                        opblockReady: props.opblockReady,
                         responsiblePerson: props.responsiblePerson,
                         cleanersNames: props.cleanersNames,
                         cleaningDone: props.cleaningDone,
@@ -596,7 +593,6 @@
                         document.getElementById('doctor-name').value = props.doctorName || '';
                         document.getElementById('has-consent').checked = props.hasConsent || false;
                         document.getElementById('reanimator-approved').checked = props.reanimatorApproved || false;
-                        document.getElementById('opblock-ready').checked = props.opblockReady || false;
                     }
 
                     document.getElementById('duration-group').style.display = 'none';
@@ -604,8 +600,8 @@
                     const isAuthor = String(props.userId) === String(user.id);
                     setFormReadOnly(true, isAuthor, isReanimator, isHeadNurse, props.isCleaning);
 
-                    document.getElementById('btn-delete-op').style.display = (isAuthor && !isReanimator && !isHeadNurse) ? 'block' : 'none';
-                    document.getElementById('btn-pause-op').style.display = (isReanimator && !props.isCleaning) ? 'block' : 'none';
+                    document.getElementById('btn-delete-op').style.display = (isAdmin || (isAuthor && !isReanimator)) ? 'block' : 'none';
+                    document.getElementById('btn-pause-op').style.display = ((isAdmin || isReanimator) && !props.isCleaning) ? 'block' : 'none';
 
                     document.getElementById('modal-overlay').style.display = 'flex';
                 }
@@ -619,18 +615,13 @@
                 localEventsCache = [];
                 snapshot.forEach((doc) => {
                     const data = doc.data();
-                    let color = '#ec4899'; // 4. По умолчанию розовый (хирург без отметок)
+                    let color = '#ec4899'; 
                     let statusText = '';
 
                     if (data.isCleaning) {
                         color = data.cleaningDone ? '#10b981' : '#64748b';
                         statusText = `[Uborka: ${data.cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}]`;
                     } else {
-                        // 4. Логика раскраски:
-                        // 1) Новая заявка хирурга без отметок -> Розовый
-                        // 2) После отметки "Согласие пациента" -> Желтый
-                        // 3) После отметки "Реаниматолог" -> Зеленый
-                        // 4) У старшей медсестры цвет не меняется
                         if (data.reanimatorApproved) {
                             color = '#10b981'; // Зеленый
                         } else if (data.hasConsent) {
@@ -639,12 +630,10 @@
                             color = '#ec4899'; // Розовый
                         }
 
-                        // 2. Статусы в самом календаре текстом вместо значков/эмодзи
                         const consentTxt = data.hasConsent ? 'Rozilik: Bor' : 'Rozilik: Yo‘q';
                         const reanimatorTxt = data.reanimatorApproved ? 'Reanimatolog: Ruxsat' : 'Reanimatolog: Kutilmoqda';
-                        const opblockTxt = data.opblockReady ? 'Operblok: Tayyor' : 'Operblok: Tayyor emas';
                         
-                        statusText = `[${consentTxt} | ${reanimatorTxt} | ${opblockTxt}]`;
+                        statusText = `[${consentTxt} | ${reanimatorTxt}]`;
                     }
 
                     localEventsCache.push({
@@ -668,10 +657,9 @@
             if (!calendar) return;
             calendar.removeAllEvents();
 
-            // 1. Медсестре при фильтрации показывается либо только её уборки, либо все уборки и операции
             if (filterOnlyMyOperations) {
                 const filtered = localEventsCache.filter(e => {
-                    if (isHeadNurse) {
+                    if (isHeadNurse && !isAdmin) {
                         return e.extendedProps.isCleaning && String(e.extendedProps.userId) === String(user.id);
                     }
                     return String(e.extendedProps.userId) === String(user.id);
@@ -697,7 +685,7 @@
             if (filterOnlyMyOperations) {
                 filterBtn.innerText = 'Mening arizalarim';
                 filterBtn.classList.add('active');
-                showToast(isHeadNurse ? 'Faqat sizning uborkalaringiz ko‘rsatilmoqda' : 'Faqat sizning operatsiyalaringiz ko‘rsatilmoqda');
+                showToast(isHeadNurse && !isAdmin ? 'Faqat sizning uborkalaringiz ko‘rsatilmoqda' : 'Faqat sizning operatsiyalaringiz ko‘rsatilmoqda');
             } else {
                 filterBtn.innerText = 'Barcha arizalar';
                 filterBtn.classList.remove('active');
@@ -775,7 +763,7 @@
                         planText += `   Bemor: ${props.patientName}\n`;
                         planText += `   Operatsiya: ${props.operationType}\n`;
                         planText += `   Shifokor: ${props.doctorName}\n`;
-                        planText += `   Rozilik: ${props.hasConsent ? 'Mavjud' : 'YO‘Q'} | Reanimatolog: ${props.reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'} | Operblok: ${props.opblockReady ? 'Tayyor' : 'Tayyor emas'}\n`;
+                        planText += `   Rozilik: ${props.hasConsent ? 'Mavjud' : 'YO‘Q'} | Reanimatolog: ${props.reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'}\n`;
                     }
                     planText += `-----------------------------------\n`;
                 });
@@ -795,25 +783,27 @@
         }
 
         // Настройка доступности полей по ролям
-        function setFormReadOnly(isDefaultReadOnly, isAuthor = false, isReanimator = false, isHeadNurse = false, isCleaning = false) {
-            // Сброс базовых инпутов
+        function setFormReadOnly(isDefaultReadOnly, isAuthor = false, isReanimatorRole = false, isHeadNurseRole = false, isCleaning = false) {
             ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names'].forEach(id => {
                 document.getElementById(id).disabled = true;
             });
             document.getElementById('reanimator-approved').disabled = true;
-            document.getElementById('opblock-ready').disabled = true;
             document.getElementById('cleaning-done').disabled = true;
 
             let canSave = false;
 
-            if (!currentEventData) { // Создание новой заявки
-                if (isHeadNurse) {
-                    // 1. У медсестры при создании заявки поля ввода фамилий АКТИВНЫ
+            if (isAdmin) { // Администратор имеет полный доступ ко всем полям
+                ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names', 'reanimator-approved', 'cleaning-done'].forEach(id => {
+                    document.getElementById(id).disabled = false;
+                });
+                canSave = true;
+            } else if (!currentEventData) { // Создание новой заявки
+                if (isHeadNurseRole) {
                     document.getElementById('responsible-person').disabled = false;
                     document.getElementById('cleaners-names').disabled = false;
                     document.getElementById('cleaning-done').disabled = false;
                     canSave = true;
-                } else if (!isReanimator) {
+                } else if (!isReanimatorRole) {
                     document.getElementById('patient-name').disabled = false;
                     document.getElementById('operation-type').disabled = false;
                     document.getElementById('doctor-name').disabled = false;
@@ -821,26 +811,24 @@
                     canSave = true;
                 }
             } else { // Редактирование существующих
-                if (isHeadNurse) {
-                    document.getElementById('opblock-ready').disabled = false;
-                    if (isCleaning) {
-                        // 1. У медсестры в её заявке на уборку поля ввода фамилий АКТИВНЫ
-                        document.getElementById('responsible-person').disabled = !isAuthor;
-                        document.getElementById('cleaners-names').disabled = !isAuthor;
+                if (isCleaning) {
+                    if (isHeadNurseRole && isAuthor) {
+                        document.getElementById('responsible-person').disabled = false;
+                        document.getElementById('cleaners-names').disabled = false;
                         document.getElementById('cleaning-done').disabled = false;
-                    }
-                    canSave = true;
-                } else if (isReanimator) {
-                    if (!isCleaning) {
-                        document.getElementById('reanimator-approved').disabled = false;
                         canSave = true;
                     }
-                } else if (isAuthor && !isCleaning) {
-                    document.getElementById('patient-name').disabled = false;
-                    document.getElementById('operation-type').disabled = false;
-                    document.getElementById('doctor-name').disabled = false;
-                    document.getElementById('has-consent').disabled = false;
-                    canSave = true;
+                } else {
+                    if (isReanimatorRole) {
+                        document.getElementById('reanimator-approved').disabled = false;
+                        canSave = true;
+                    } else if (isAuthor) {
+                        document.getElementById('patient-name').disabled = false;
+                        document.getElementById('operation-type').disabled = false;
+                        document.getElementById('doctor-name').disabled = false;
+                        document.getElementById('has-consent').disabled = false;
+                        canSave = true;
+                    }
                 }
             }
 
@@ -849,9 +837,9 @@
 
         // 💾 Сохранение записи операции / уборки в Firestore + Уведомление в Telegram
         async function saveOperation() {
-            const isCleaning = isHeadNurse && (!currentEventData || currentEventData.isCleaning);
+            const isCleaning = (isHeadNurse && (!currentEventData || currentEventData.isCleaning)) && !isAdmin;
 
-            let patientName = '', operationType = '', doctorName = '', hasConsent = false, reanimatorApproved = false, opblockReady = false;
+            let patientName = '', operationType = '', doctorName = '', hasConsent = false, reanimatorApproved = false;
             let responsiblePerson = '', cleanersNames = '', cleaningDone = false;
 
             if (isCleaning) {
@@ -868,7 +856,6 @@
                 doctorName = document.getElementById('doctor-name').value.trim();
                 hasConsent = document.getElementById('has-consent').checked;
                 reanimatorApproved = document.getElementById('reanimator-approved').checked;
-                opblockReady = document.getElementById('opblock-ready').checked;
 
                 if (!currentEventData && (!patientName || !operationType || !doctorName)) {
                     return showToast('⚠️ Barcha maydonlarni to‘ldiring!');
@@ -888,7 +875,7 @@
 
             const todayStr = new Date().toISOString().split('T')[0];
             const eventDateStr = startStr.split('T')[0];
-            if (eventDateStr < todayStr && !currentEventData) {
+            if (eventDateStr < todayStr && !currentEventData && !isAdmin) {
                 return showToast('⚠️ O‘tgan kunlarga ariza topshirish taqiqlangan!');
             }
 
@@ -908,7 +895,7 @@
                 return (newStartMs < evEndMs && newEndMs > evStartMs);
             });
 
-            if (isOverlapping && !currentEventData) {
+            if (isOverlapping && !currentEventData && !isAdmin) {
                 return showToast('⚠️ Bu vaqt allaqachon band qilingan!');
             }
 
@@ -932,7 +919,6 @@
                     doctorName: doctorName || currentEventData.doctorName,
                     hasConsent: isNew ? hasConsent : (document.getElementById('has-consent').disabled ? currentEventData.hasConsent : hasConsent),
                     reanimatorApproved: isNew ? reanimatorApproved : (document.getElementById('reanimator-approved').disabled ? currentEventData.reanimatorApproved : reanimatorApproved),
-                    opblockReady: isNew ? opblockReady : (document.getElementById('opblock-ready').disabled ? currentEventData.opblockReady : opblockReady),
                     start: startStr,
                     end: endStr,
                     userId: isNew ? user.id : currentEventData.userId
@@ -955,7 +941,6 @@
                 const timeStartFormatted = formatTashkentTime(newStart, { hour: '2-digit', minute: '2-digit' });
                 const timeEndFormatted = formatTashkentTime(newEnd, { hour: '2-digit', minute: '2-digit' });
 
-                // 2. В уведомлениях в группу статусы расписаны текстом без значков/эмодзи
                 let notifyText = '';
                 if (isCleaning) {
                     notifyText = `<b>GENERAL UBORKA ARIZASI</b>\n\n` +
@@ -976,7 +961,7 @@
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${eventPayload.patientName}\n` +
                                  `<b>Operatsiya:</b> ${eventPayload.operationType}\n` +
-                                 `<b>Rozilik:</b> ${eventPayload.hasConsent ? 'Bor' : 'Yo‘q'} | <b>Reanimatolog:</b> ${eventPayload.reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'} | <b>Operblok:</b> ${eventPayload.opblockReady ? 'Tayyor' : 'Tayyor emas'}`;
+                                 `<b>Rozilik:</b> ${eventPayload.hasConsent ? 'Bor' : 'Yo‘q'} | <b>Reanimatolog:</b> ${eventPayload.reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'}`;
                 }
 
                 sendTelegramGroupNotification(notifyText);
@@ -985,7 +970,6 @@
             }
         }
 
-        // Приостановка подготовки реаниматологом
         function openPauseModal() {
             document.getElementById('modal-overlay').style.display = 'none';
             document.getElementById('pause-reason-input').value = '';
@@ -1032,7 +1016,6 @@
             document.getElementById('reason-modal-overlay').style.display = 'flex';
         }
 
-        // 🗑️ Удаление из Firestore + Уведомление
         async function submitDeleteWithReason() {
             if (!currentEventData) return;
             const reason = document.getElementById('cancel-reason-input').value.trim();
@@ -1086,7 +1069,6 @@
             document.getElementById('cleaners-names').value = '';
             document.getElementById('has-consent').checked = false;
             document.getElementById('reanimator-approved').checked = false;
-            document.getElementById('opblock-ready').checked = false;
             document.getElementById('cleaning-done').checked = false;
             
             selectedDurationMinutes = 60;
@@ -1101,7 +1083,6 @@
             if (calendar) calendar.unselect();
         }
 
-        // 💬 Чат в реальном времени через Firestore
         function initChatListener() {
             db.collection("chat").orderBy("timestamp", "asc").onSnapshot((snapshot) => {
                 const box = document.getElementById('chat-box');
