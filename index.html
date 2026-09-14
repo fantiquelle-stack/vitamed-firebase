@@ -255,15 +255,15 @@
             <div id="op-form-body">
                 <div class="form-group">
                     <label>BEMORNING F.I.SH. *</label>
-                    <input type="text" id="patient-name" placeholder="Ismoilov I.I.">
+                    <input type="text" id="patient-name" placeholder="...">
                 </div>
                 <div class="form-group">
                     <label>OPERATSIYA TURI *</label>
-                    <input type="text" id="operation-type" placeholder="Appendektomiya">
+                    <input type="text" id="operation-type" placeholder="...">
                 </div>
                 <div class="form-group">
                     <label>SHIFOKOR F.I.SH. *</label>
-                    <input type="text" id="doctor-name" placeholder="Karimov A.S.">
+                    <input type="text" id="doctor-name" placeholder="...">
                 </div>
                 
                 <div class="form-group" id="duration-group">
@@ -288,7 +288,7 @@
             <!-- Форма генеральной уборки (для старшей медсестры) -->
             <div id="cleaning-form-body" style="display: none;">
                 <div class="form-group">
-                    <label>UBORKA DAVOMIYLIGI *</label>
+                    <label>TOZALASH DAVOMIYLIGI *</label>
                     <div class="duration-selector">
                         <div class="duration-btn selected" data-value="240" onclick="selectDuration(this)">4 soat</div>
                         <div class="duration-btn" data-value="360" onclick="selectDuration(this)">6 soat</div>
@@ -296,16 +296,16 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>MAS'UL SHAXS F.I.SH. (ST. MEDSESTRA / OP. MEDSESTRA) *</label>
-                    <input type="text" id="responsible-person" placeholder="Alimova M.K.">
+                    <label>MAS'UL SHAXS F.I.SH. (ST. XAMSHIRA / OP. XAMSHIRA) *</label>
+                    <input type="text" id="responsible-person" placeholder="...">
                 </div>
                 <div class="form-group">
-                    <label>SANITARKALAR F.I.SH. *</label>
-                    <input type="text" id="cleaners-names" placeholder="Siddiqova G., Hasanova N.">
+                    <label>FARROSHLAR F.I.SH. *</label>
+                    <input type="text" id="cleaners-names" placeholder="...">
                 </div>
                 <div class="checkbox-group">
                     <input type="checkbox" id="cleaning-done">
-                    <label for="cleaning-done">Uborka o‘tkazildi</label>
+                    <label for="cleaning-done">Tozalash o‘tkazildi</label>
                 </div>
             </div>
 
@@ -587,7 +587,7 @@
                     };
 
                     if (props.isCleaning) {
-                        document.getElementById('modal-title').innerText = `${props.operblock || 1}-operblok: General уборка tafsilotlari`;
+                        document.getElementById('modal-title').innerText = `${props.operblock || 1}-operblok: General tozalash tafsilotlari`;
                         document.getElementById('op-form-body').style.display = 'none';
                         document.getElementById('cleaning-form-body').style.display = 'block';
 
@@ -630,7 +630,7 @@
 
                     if (data.isCleaning) {
                         color = data.cleaningDone ? '#10b981' : '#64748b';
-                        statusText = `[Uborka: ${data.cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}]`;
+                        statusText = `[Tozalash: ${data.cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}]`;
                     } else {
                         if (data.reanimatorApproved) {
                             color = '#10b981';
@@ -649,7 +649,7 @@
                     localEventsCache.push({
                         id: doc.id,
                         title: data.isCleaning 
-                            ? `${statusText} General уборка | ${data.responsiblePerson || ''}` 
+                            ? `${statusText} General tozalash | ${data.responsiblePerson || ''}` 
                             : `${statusText} ${data.operationType} | ${data.patientName}`,
                         start: data.start,
                         end: data.end,
@@ -691,10 +691,10 @@
 
             if (activeOperblock === 1) {
                 filterBtn.innerText = '1-operblok';
-                showToast('1-operblok kalendari ko‘rsatilmoqda');
+                showToast('1-operblok ko‘rsatilmoqda');
             } else {
                 filterBtn.innerText = '2-operblok';
-                showToast('2-operblok kalendari ko‘rsatilmoqda');
+                showToast('2-operblok ko‘rsatilmoqda');
             }
 
             renderFilteredEvents();
@@ -711,7 +711,7 @@
             const pickerInput = document.getElementById('manual-date-picker');
 
             const dateStr = dateObj.toLocaleDateString('uz-UZ', {
-                weekday: 'short', day: '2-digit', month: 'long', year: 'numeric'
+                weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
             });
             displaySpan.innerText = dateStr;
             pickerInput.value = dateObj.toISOString().split('T')[0];
@@ -749,11 +749,11 @@
                 day: '2-digit', month: '2-digit', year: 'numeric', weekday: 'long'
             });
 
-            let planText = `📋 KUNLIK OPERATSIYALAR REJASI (${activeOperblock}-OPERBLOK): ${formattedDate.toUpperCase()}\n`;
+            let planText = `📋 KUNLIK AMALIYOTLAR REJASI (${activeOperblock}-OPERBLOK): ${formattedDate.toUpperCase()}\n`;
             planText += `===================================\n\n`;
 
             if (dayEvents.length === 0) {
-                planText += `Ushbu kunga rejalashtirilgan operatsiyalar mavjud emas.`;
+                planText += `Ushbu kunga rejalashtirilgan amaliyotlar mavjud emas.`;
             } else {
                 dayEvents.forEach((ev, idx) => {
                     const props = ev.extendedProps;
@@ -761,9 +761,9 @@
                     const endTime = formatTashkentTime(ev.end, { hour: '2-digit', minute: '2-digit' });
 
                     if (props.isCleaning) {
-                        planText += `${idx + 1}. [${startTime} - ${endTime}] 🧹 GENERAL UBORKA\n`;
+                        planText += `${idx + 1}. [${startTime} - ${endTime}] GENERAL TOZALASH\n`;
                         planText += `   Mas'ul: ${props.responsiblePerson}\n`;
-                        planText += `   Sanitarkalar: ${props.cleanersNames}\n`;
+                        planText += `   Farroshlar: ${props.cleanersNames}\n`;
                         planText += `   Holat: ${props.cleaningDone ? 'Bajarildi' : 'Bajarilmadi'}\n`;
                     } else {
                         planText += `${idx + 1}. [${startTime} - ${endTime}]\n`;
@@ -955,7 +955,7 @@
 
                 let notifyText = '';
                 if (isCleaning) {
-                    notifyText = `<b>GENERAL UBORKA ARIZASI (${targetOperblock}-OPERBLOK)</b>\n\n` +
+                    notifyText = `<b>GENERAL TOZALASH ARIZASI (${targetOperblock}-OPERBLOK)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Mas'ul:</b> ${responsiblePerson}\n` +
                                  `<b>Sanitarkalar:</b> ${cleanersNames}\n` +
@@ -1006,7 +1006,7 @@
 
                 const dateFormatted = formatTashkentTime(currentEventData.startStr, { day: '2-digit', month: '2-digit', year: 'numeric' });
                 sendTelegramGroupNotification(
-                    `<b>OPERATSIYA TAYYORGARLIGI PRIONASTANOVLENA (${currentEventData.operblock || 1}-OPERBLOK)</b>\n\n` +
+                    `<b>OPERATSIYA TAYYORGARLIGI TO‘XTATILDI (${currentEventData.operblock || 1}-OPERBLOK)</b>\n\n` +
                     `<b>Sana:</b> ${dateFormatted}\n` +
                     `<b>Bemor:</b> ${currentEventData.patientName}\n` +
                     `<b>Operatsiya:</b> ${currentEventData.operationType}\n` +
