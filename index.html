@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Operatsiyalar rejasi</title>
     
-    <!-- Telegram SDK & FullCalendar Premium Bundle (с поддержкой Resource TimeGrid) -->
+    <!-- Telegram SDK & FullCalendar Scheduler -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@6.1.10/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/uz.global.min.js"></script>
@@ -87,26 +87,17 @@
         }
 
         .fc-toolbar { display: none !important; }
-        
-        /* Заголовки для операционных залов */
-        .fc-col-header-cell {
-            background-color: #e2e8f0 !important;
-            padding: 6px 0 !important;
-            font-weight: 800 !important;
-            font-size: 13px !important;
-            color: var(--primary-active) !important;
-            border-bottom: 2px solid var(--border) !important;
-        }
+        .fc-col-header-cell { background: #f8fafc !important; padding: 6px 0 !important; font-weight: 800 !important; color: #0284c7 !important; font-size: 14px !important; }
 
         .fc-timegrid-slot { height: 55px !important; border-bottom: 1px dashed #e2e8f0 !important; }
 
-        .fc-timegrid-axis { width: 60px !important; }
-        .fc-timegrid-slot-label { width: 60px !important; }
+        .fc-timegrid-axis { width: 70px !important; }
+        .fc-timegrid-slot-label { width: 70px !important; }
         .fc-timegrid-axis-cushion, .fc-timegrid-slot-label-cushion {
-            font-size: 12px !important;
+            font-size: 13px !important;
             font-weight: 700 !important;
             color: #475569 !important;
-            padding: 4px !important;
+            padding: 6px 8px !important;
             text-align: center !important;
         }
 
@@ -129,7 +120,7 @@
             margin-bottom: 2px;
         }
         .fc-event-title {
-            font-size: 12px !important;
+            font-size: 13px !important;
             font-weight: 700 !important;
             line-height: 1.25 !important;
             white-space: normal !important;
@@ -178,7 +169,7 @@
         
         .form-group { margin-bottom: 14px; }
         .form-group label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; }
-        .form-group input[type="text"], .form-group select { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; outline: none; background: #f8fafc; }
+        .form-group input[type="text"] { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; outline: none; background: #f8fafc; }
         
         .duration-selector { display: flex; gap: 8px; }
         .duration-btn {
@@ -261,12 +252,12 @@
             <h3 id="modal-title">Operatsiya arizasi</h3>
 
             <!-- Выбор операционной -->
-            <div class="form-group" id="op-room-group">
+            <div class="form-group" id="room-group">
                 <label>OPERATSIYA XONASI *</label>
-                <select id="operating-room-select">
-                    <option value="room1">1-operatsiya xonasi</option>
-                    <option value="room2">2-operatsiya xonasi</option>
-                </select>
+                <div class="duration-selector">
+                    <div class="duration-btn room-btn selected" data-value="1" onclick="selectRoom(this)">1-zal</div>
+                    <div class="duration-btn room-btn" data-value="2" onclick="selectRoom(this)">2-zal</div>
+                </div>
             </div>
 
             <!-- Форма обычной операции -->
@@ -287,9 +278,9 @@
                 <div class="form-group" id="duration-group">
                     <label>OPERATSIYA DAVOMIYLIGI *</label>
                     <div class="duration-selector">
-                        <div class="duration-btn selected" data-value="60" onclick="selectDuration(this)">1 soat</div>
-                        <div class="duration-btn" data-value="90" onclick="selectDuration(this)">1.5 soat</div>
-                        <div class="duration-btn" data-value="120" onclick="selectDuration(this)">2 soat</div>
+                        <div class="duration-btn duration-opt selected" data-value="60" onclick="selectDuration(this)">1 soat</div>
+                        <div class="duration-btn duration-opt" data-value="90" onclick="selectDuration(this)">1.5 soat</div>
+                        <div class="duration-btn duration-opt" data-value="120" onclick="selectDuration(this)">2 soat</div>
                     </div>
                 </div>
 
@@ -308,9 +299,9 @@
                 <div class="form-group">
                     <label>UBORKA DAVOMIYLIGI *</label>
                     <div class="duration-selector">
-                        <div class="duration-btn selected" data-value="240" onclick="selectDuration(this)">4 soat</div>
-                        <div class="duration-btn" data-value="360" onclick="selectDuration(this)">6 soat</div>
-                        <div class="duration-btn" data-value="480" onclick="selectDuration(this)">8 soat</div>
+                        <div class="duration-btn duration-opt selected" data-value="240" onclick="selectDuration(this)">4 soat</div>
+                        <div class="duration-btn duration-opt" data-value="360" onclick="selectDuration(this)">6 soat</div>
+                        <div class="duration-btn duration-opt" data-value="480" onclick="selectDuration(this)">8 soat</div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -394,7 +385,7 @@
         // ⚙️ НАСТРОЙКИ TELEGRAM И FIREBASE
         const BOT_TOKEN = "8908847883:AAFmCwUCaSI1YvGGEtjmwElEL63_MDX0Y0I";
         const GROUP_CHAT_ID = "-1003576288707";
-        const ADMIN_IDS = ["963965528"]; // ИСПРАВЛЕНО: Полный корректный ID администратора
+        const ADMIN_IDS = ["963965528"]; 
         const REANIMATOR_IDS = ["963965527", "987654321"];
         const HEAD_NURSE_IDS = ["361373685"];
 
@@ -428,6 +419,7 @@
         
         let filterOnlyMyOperations = false;
         let selectedDurationMinutes = 60;
+        let selectedRoomId = '1';
         let localEventsCache = [];
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -529,8 +521,8 @@
                 headerToolbar: false,
                 initialView: 'resourceTimeGridDay',
                 resources: [
-                    { id: 'room1', title: '1-operatsiya xonasi' },
-                    { id: 'room2', title: '2-operatsiya xonasi' }
+                    { id: '1', title: '1-zal' },
+                    { id: '2', title: '2-zal' }
                 ],
                 locale: 'uz',
                 height: '100%',
@@ -563,11 +555,10 @@
                     currentEventData = null;
                     selectedTimeInfo = info;
                     resetForm();
-                    
-                    if (info.resource) {
-                        document.getElementById('operating-room-select').value = info.resource.id;
-                    }
 
+                    const clickedRoom = info.resource ? info.resource.id : '1';
+                    setRoomSelection(clickedRoom);
+                    
                     if (isHeadNurse && !isAdmin) {
                         document.getElementById('modal-title').innerText = "General уборка arizasi";
                         document.getElementById('op-form-body').style.display = 'none';
@@ -595,7 +586,7 @@
                     currentEventData = { 
                         id: event.id, 
                         userId: props.userId, 
-                        resourceId: event.getResources()[0]?.id || props.resourceId || 'room1',
+                        roomId: props.roomId || '1',
                         startStr: event.startStr, 
                         endStr: event.endStr,
                         isCleaning: props.isCleaning || false,
@@ -611,7 +602,7 @@
                         pauseReason: props.pauseReason
                     };
 
-                    document.getElementById('operating-room-select').value = currentEventData.resourceId;
+                    setRoomSelection(props.roomId || '1');
 
                     if (props.isCleaning) {
                         document.getElementById('modal-title').innerText = "General уборка tafsilotlari";
@@ -675,7 +666,7 @@
 
                     localEventsCache.push({
                         id: doc.id,
-                        resourceId: data.resourceId || 'room1',
+                        resourceId: data.roomId || '1',
                         title: data.isCleaning 
                             ? `${statusText} General уборка | ${data.responsiblePerson || ''}` 
                             : `${statusText} ${data.operationType} | ${data.patientName}`,
@@ -733,8 +724,22 @@
             renderFilteredEvents();
         }
 
+        function selectRoom(btnEl) {
+            document.querySelectorAll('.room-btn').forEach(b => b.classList.remove('selected'));
+            btnEl.classList.add('selected');
+            selectedRoomId = btnEl.getAttribute('data-value');
+        }
+
+        function setRoomSelection(roomId) {
+            selectedRoomId = String(roomId || '1');
+            document.querySelectorAll('.room-btn').forEach(b => {
+                if (b.getAttribute('data-value') === selectedRoomId) b.classList.add('selected');
+                else b.classList.remove('selected');
+            });
+        }
+
         function selectDuration(btnEl) {
-            document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('.duration-opt').forEach(b => b.classList.remove('selected'));
             btnEl.classList.add('selected');
             selectedDurationMinutes = parseInt(btnEl.getAttribute('data-value'));
         }
@@ -790,7 +795,7 @@
                     const props = ev.extendedProps;
                     const startTime = formatTashkentTime(ev.start, { hour: '2-digit', minute: '2-digit' });
                     const endTime = formatTashkentTime(ev.end, { hour: '2-digit', minute: '2-digit' });
-                    const roomName = props.resourceId === 'room2' ? '2-operatsiya xonasi' : '1-operatsiya xonasi';
+                    const roomName = `${props.roomId || '1'}-zal`;
 
                     if (props.isCleaning) {
                         planText += `${idx + 1}. [${startTime} - ${endTime}] (${roomName}) 🧹 GENERAL UBORKA\n`;
@@ -821,8 +826,9 @@
             showToast('📋 Kun rejasi nusxalandi!');
         }
 
+        // Обновленная функция управления доступом к полям
         function setFormReadOnly(isDefaultReadOnly, isAuthor = false, isReanimatorRole = false, isHeadNurseRole = false, isCleaning = false) {
-            ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names', 'operating-room-select'].forEach(id => {
+            ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names'].forEach(id => {
                 document.getElementById(id).disabled = true;
             });
             document.getElementById('reanimator-approved').disabled = true;
@@ -831,12 +837,11 @@
             let canSave = false;
 
             if (isAdmin) {
-                ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names', 'reanimator-approved', 'cleaning-done', 'operating-room-select'].forEach(id => {
+                ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names', 'reanimator-approved', 'cleaning-done'].forEach(id => {
                     document.getElementById(id).disabled = false;
                 });
                 canSave = true;
-            } else if (!currentEventData) { 
-                document.getElementById('operating-room-select').disabled = false;
+            } else if (!currentEventData) { // Создание новой заявки
                 if (isHeadNurseRole) {
                     document.getElementById('responsible-person').disabled = false;
                     document.getElementById('cleaners-names').disabled = false;
@@ -849,13 +854,12 @@
                     document.getElementById('has-consent').disabled = false;
                     canSave = true;
                 }
-            } else { 
+            } else { // Редактирование существующих
                 if (isCleaning) {
                     if (isHeadNurseRole && (isAuthor || String(currentEventData.userId) === String(user.id))) {
                         document.getElementById('responsible-person').disabled = false;
                         document.getElementById('cleaners-names').disabled = false;
                         document.getElementById('cleaning-done').disabled = false;
-                        document.getElementById('operating-room-select').disabled = false;
                         canSave = true;
                     }
                 } else {
@@ -867,18 +871,21 @@
                         document.getElementById('operation-type').disabled = false;
                         document.getElementById('doctor-name').disabled = false;
                         document.getElementById('has-consent').disabled = false;
-                        document.getElementById('operating-room-select').disabled = false;
                         canSave = true;
                     }
                 }
             }
+
+            document.querySelectorAll('.room-btn').forEach(b => {
+                b.style.pointerEvents = canSave ? 'auto' : 'none';
+                b.style.opacity = canSave ? '1' : '0.7';
+            });
 
             document.getElementById('btn-save-op').style.display = canSave ? 'block' : 'none';
         }
 
         async function saveOperation() {
             const isCleaning = (isHeadNurse && (!currentEventData || currentEventData.isCleaning)) && !isAdmin;
-            const resourceId = document.getElementById('operating-room-select').value;
 
             let patientName = '', operationType = '', doctorName = '', hasConsent = false, reanimatorApproved = false;
             let responsiblePerson = '', cleanersNames = '', cleaningDone = false;
@@ -929,19 +936,17 @@
             const newEndMs = new Date(endStr).getTime();
             const currentDocId = currentEventData ? currentEventData.id : null;
 
-            // Раздельная проверка слотов по конкретному операционному залу
             const isOverlapping = localEventsCache.some(ev => {
                 if (ev.id === currentDocId) return false;
-                const evRoom = ev.resourceId || 'room1';
-                if (evRoom !== resourceId) return false;
-
+                const evRoom = ev.extendedProps?.roomId || '1';
+                if (String(evRoom) !== String(selectedRoomId)) return false;
                 const evStartMs = new Date(ev.start).getTime();
                 const evEndMs = new Date(ev.end).getTime();
                 return (newStartMs < evEndMs && newEndMs > evStartMs);
             });
 
             if (isOverlapping && !currentEventData && !isAdmin) {
-                return showToast('⚠️ Ushbu operatsiya xonasida bu vaqt band!');
+                return showToast('⚠️ Ushbu zalda bu vaqt allaqachon band qilingan!');
             }
 
             const isNew = !currentEventData;
@@ -950,7 +955,7 @@
             if (isCleaning) {
                 eventPayload = {
                     isCleaning: true,
-                    resourceId,
+                    roomId: selectedRoomId,
                     responsiblePerson,
                     cleanersNames,
                     cleaningDone,
@@ -960,7 +965,7 @@
                 };
             } else {
                 eventPayload = {
-                    resourceId,
+                    roomId: selectedRoomId,
                     patientName: patientName || currentEventData.patientName,
                     operationType: operationType || currentEventData.operationType,
                     doctorName: doctorName || currentEventData.doctorName,
@@ -987,19 +992,16 @@
                 const dateFormatted = formatTashkentTime(newStart, { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const timeStartFormatted = formatTashkentTime(newStart, { hour: '2-digit', minute: '2-digit' });
                 const timeEndFormatted = formatTashkentTime(newEnd, { hour: '2-digit', minute: '2-digit' });
-                const roomTitle = resourceId === 'room2' ? '2-operatsiya xonasi' : '1-operatsiya xonasi';
 
                 let notifyText = '';
                 if (isCleaning) {
-                    notifyText = `<b>GENERAL UBORKA ARIZASI</b>\n\n` +
-                                 `<b>Xona:</b> ${roomTitle}\n` +
+                    notifyText = `<b>GENERAL UBORKA ARIZASI (${selectedRoomId}-zal)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Mas'ul:</b> ${responsiblePerson}\n` +
                                  `<b>Sanitarkalar:</b> ${cleanersNames}\n` +
                                  `<b>Holat:</b> ${cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}`;
                 } else if (isNew) {
-                    notifyText = `<b>YANGI OPERATSIYA ARIZASI</b>\n\n` +
-                                 `<b>Xona:</b> ${roomTitle}\n` +
+                    notifyText = `<b>YANGI OPERATSIYA ARIZASI (${selectedRoomId}-zal)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${patientName}\n` +
                                  `<b>Operatsiya:</b> ${operationType}\n` +
@@ -1007,8 +1009,7 @@
                                  `<b>Rozilik:</b> ${hasConsent ? 'Mavjud' : 'Yo‘q'}\n` +
                                  `<b>Reanimatolog:</b> ${reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'}`;
                 } else {
-                    notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI</b>\n\n` +
-                                 `<b>Xona:</b> ${roomTitle}\n` +
+                    notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI (${selectedRoomId}-zal)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${eventPayload.patientName}\n` +
                                  `<b>Operatsiya:</b> ${eventPayload.operationType}\n` +
@@ -1045,7 +1046,7 @@
 
                 const dateFormatted = formatTashkentTime(currentEventData.startStr, { day: '2-digit', month: '2-digit', year: 'numeric' });
                 sendTelegramGroupNotification(
-                    `<b>OPERATSIYA TAYYORGARLIGI PRIONASTANOVLENA</b>\n\n` +
+                    `<b>OPERATSIYA TAYYORGARLIGI PRIONASTANOVLENA (${currentEventData.roomId || '1'}-zal)</b>\n\n` +
                     `<b>Sana:</b> ${dateFormatted}\n` +
                     `<b>Bemor:</b> ${currentEventData.patientName}\n` +
                     `<b>Operatsiya:</b> ${currentEventData.operationType}\n` +
@@ -1084,7 +1085,7 @@
                 const timeFormatted = formatTashkentTime(currentEventData.startStr, { hour: '2-digit', minute: '2-digit' });
 
                 sendTelegramGroupNotification(
-                    `<b>OPERATSIYA BEKOR QILINDI / O‘CHIRILDI</b>\n\n` +
+                    `<b>OPERATSIYA BEKOR QILINDI / O‘CHIRILDI (${currentEventData.roomId || '1}-zal)</b>\n\n` +
                     `<b>Rejalashtirilgan edi:</b> ${dateFormatted} soat ${timeFormatted} da\n` +
                     `<b>Bemor:</b> ${currentEventData.patientName}\n` +
                     `<b>Operatsiya:</b> ${currentEventData.operationType}\n` +
@@ -1121,10 +1122,12 @@
             document.getElementById('has-consent').checked = false;
             document.getElementById('reanimator-approved').checked = false;
             document.getElementById('cleaning-done').checked = false;
-            document.getElementById('operating-room-select').value = 'room1';
             
+            selectedRoomId = '1';
+            setRoomSelection('1');
+
             selectedDurationMinutes = 60;
-            document.querySelectorAll('.duration-btn').forEach((b, idx) => {
+            document.querySelectorAll('.duration-opt').forEach((b, idx) => {
                 if (idx === 0) b.classList.add('selected');
                 else b.classList.remove('selected');
             });
