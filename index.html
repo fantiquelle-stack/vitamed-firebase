@@ -184,12 +184,13 @@
         .checkbox-group label { font-size: 14px; font-weight: 600; cursor: pointer; }
         .checkbox-group input:disabled + label { color: var(--text-muted); opacity: 0.7; }
 
-        .modal-buttons { display: flex; gap: 10px; margin-top: auto; padding-top: 14px; }
-        .modal-buttons button { flex: 1; padding: 14px; border-radius: 10px; border: none; font-weight: 700; font-size: 14px; cursor: pointer; }
+        .modal-buttons { display: flex; gap: 8px; margin-top: auto; padding-top: 14px; flex-wrap: wrap; }
+        .modal-buttons button { flex: 1; min-width: 120px; padding: 12px 8px; border-radius: 10px; border: none; font-weight: 700; font-size: 13px; cursor: pointer; }
         .btn-cancel { background: #e2e8f0; color: var(--text-main); }
         .btn-save { background: var(--primary); color: #ffffff; }
         .btn-delete { background: var(--danger); color: #ffffff; display: none; }
         .btn-pause { background: #f97316; color: #ffffff; }
+        .btn-export-ics { background: #e0f2fe; color: var(--primary); border: 1px solid #bae6fd; display: none; }
 
         .daily-plan-textarea {
             width: 100%; flex: 1; font-family: monospace; font-size: 14px; line-height: 1.5;
@@ -310,6 +311,7 @@
             </div>
 
             <div class="modal-buttons">
+                <button class="btn-export-ics" id="btn-export-ics" onclick="exportToDeviceCalendar()">📅 Kalendarga</button>
                 <button class="btn-delete" id="btn-delete-op" onclick="openConfirmDeleteModal()">O‘chirish</button>
                 <button class="btn-pause" id="btn-pause-op" style="display: none;" onclick="openPauseModal()">Muzlatish</button>
                 <button class="btn-cancel" onclick="closeModal('modal-overlay')">Yopish</button>
@@ -504,6 +506,58 @@
             }
         }
 
+        function exportToDeviceCalendar() {
+            if (!currentEventData) return;
+
+            const formatDateForIcs = (isoStr) => {
+                const d = new Date(isoStr);
+                return d.toISOString().replace(/-|:|\.\d\d\d/g, "");
+            };
+
+            const startFormatted = formatDateForIcs(currentEventData.startStr);
+            const endFormatted = formatDateForIcs(currentEventData.endStr);
+
+            let title = "";
+            let description = "";
+
+            if (currentEventData.isCleaning) {
+                title = `🧹 General уборка (${currentEventData.operblock || 1}-operblok)`;
+                description = `Mas'ul: ${currentEventData.responsiblePerson || ''}\nSanitarkalar: ${currentEventData.cleanersNames || ''}`;
+            } else {
+                title = `🩺 Operatsiya: ${currentEventData.operationType} (${currentEventData.patientName})`;
+                description = `Bemor: ${currentEventData.patientName}\nOperatsiya: ${currentEventData.operationType}\nShifokor: ${currentEventData.doctorName}\nOperblok: ${currentEventData.operblock || 1}`;
+            }
+
+            const icsData = 
+`BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//VitaMed Planner//UZ
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+SUMMARY:${title}
+DESCRIPTION:${description.replace(/\n/g, "\\n")}
+DTSTART:${startFormatted}
+DTEND:${endFormatted}
+BEGIN:VALARM
+TRIGGER:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:Reminder
+END:VALARM
+END:VEVENT
+END:VCALENDAR`;
+
+            const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.setAttribute('download', `operatsiya_${currentEventData.id}.ics`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('📅 Kalendarga yuklab olindi!');
+        }
+
         function initCalendar() {
             const calendarEl = document.getElementById('calendar');
             
@@ -558,6 +612,7 @@
                         setFormReadOnly(false, false, isReanimator, isHeadNurse, false);
                     }
 
+                    document.getElementById('btn-export-ics').style.display = 'none';
                     document.getElementById('btn-delete-op').style.display = 'none';
                     document.getElementById('btn-pause-op').style.display = 'none';
                     document.getElementById('modal-overlay').style.display = 'flex';
@@ -611,6 +666,7 @@
                     const isAuthor = String(props.userId) === String(user.id);
                     setFormReadOnly(true, isAuthor, isReanimator, isHeadNurse, props.isCleaning);
 
+                    document.getElementById('btn-export-ics').style.display = 'block';
                     document.getElementById('btn-delete-op').style.display = (isAdmin || (isAuthor && !isReanimator)) ? 'block' : 'none';
                     document.getElementById('btn-pause-op').style.display = ((isAdmin || isReanimator) && !props.isCleaning) ? 'block' : 'none';
 
@@ -789,7 +845,6 @@
             showToast('📋 Kun rejasi nusxalandi!');
         }
 
-        // Обновленная функция управления доступом к полям
         function setFormReadOnly(isDefaultReadOnly, isAuthor = false, isReanimatorRole = false, isHeadNurseRole = false, isCleaning = false) {
             ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names'].forEach(id => {
                 document.getElementById(id).disabled = true;
@@ -804,7 +859,7 @@
                     document.getElementById(id).disabled = false;
                 });
                 canSave = true;
-            } else if (!currentEventData) { // Создание новой заявки
+            } else if (!currentEventData) {
                 if (isHeadNurseRole) {
                     document.getElementById('responsible-person').disabled = false;
                     document.getElementById('cleaners-names').disabled = false;
@@ -817,7 +872,7 @@
                     document.getElementById('has-consent').disabled = false;
                     canSave = true;
                 }
-            } else { // Редактирование существующих
+            } else {
                 if (isCleaning) {
                     if (isHeadNurseRole && (isAuthor || String(currentEventData.userId) === String(user.id))) {
                         document.getElementById('responsible-person').disabled = false;
