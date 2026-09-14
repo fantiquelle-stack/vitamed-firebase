@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Operatsiyalar rejasi</title>
     
-    <!-- Telegram SDK & FullCalendar Scheduler -->
+    <!-- Telegram SDK & FullCalendar -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@6.1.10/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/uz.global.min.js"></script>
 
     <!-- Firebase SDKs -->
@@ -74,6 +74,19 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.01; cursor: pointer;
         }
 
+        /* Переключатель залов */
+        .room-selector-bar {
+            display: flex; gap: 6px; padding: 6px 12px; background: var(--card-bg); border-bottom: 1px solid var(--border);
+        }
+        .room-tab-btn {
+            flex: 1; padding: 8px; border: 1px solid var(--border); background: #f8fafc;
+            border-radius: 8px; font-weight: 700; font-size: 13px; color: var(--text-main);
+            cursor: pointer; text-align: center; transition: all 0.2s;
+        }
+        .room-tab-btn.active {
+            background: var(--primary); color: #ffffff; border-color: var(--primary);
+        }
+
         .screen { display: none; flex: 1; padding: 6px; overflow-y: auto; }
         .screen.active { display: flex; flex-direction: column; }
 
@@ -87,7 +100,7 @@
         }
 
         .fc-toolbar { display: none !important; }
-        .fc-col-header-cell { background: #f8fafc !important; padding: 6px 0 !important; font-weight: 800 !important; color: #0284c7 !important; font-size: 14px !important; }
+        .fc-col-header { display: none !important; }
 
         .fc-timegrid-slot { height: 55px !important; border-bottom: 1px dashed #e2e8f0 !important; }
 
@@ -225,6 +238,13 @@
             <button class="nav-arrow-btn" onclick="navigateDay(1)">❯</button>
         </div>
 
+        <!-- Переключатель залов -->
+        <div class="room-selector-bar" id="room-nav-bar">
+            <button class="room-tab-btn active" onclick="setRoomFilter('all', this)">Barcha zallar</button>
+            <button class="room-tab-btn" onclick="setRoomFilter('1', this)">1-zal</button>
+            <button class="room-tab-btn" onclick="setRoomFilter('2', this)">2-zal</button>
+        </div>
+
         <div id="calendar-screen" class="screen active">
             <div id="calendar"></div>
         </div>
@@ -251,12 +271,12 @@
         <div class="modal">
             <h3 id="modal-title">Operatsiya arizasi</h3>
 
-            <!-- Выбор операционной -->
-            <div class="form-group" id="room-group">
-                <label>OPERATSIYA XONASI *</label>
+            <!-- Выбор операционного зала -->
+            <div class="form-group" id="modal-room-group">
+                <label>OPERATSIYA ZALI *</label>
                 <div class="duration-selector">
-                    <div class="duration-btn room-btn selected" data-value="1" onclick="selectRoom(this)">1-zal</div>
-                    <div class="duration-btn room-btn" data-value="2" onclick="selectRoom(this)">2-zal</div>
+                    <div class="duration-btn room-form-opt selected" data-value="1" onclick="selectFormRoom(this)">1-zal</div>
+                    <div class="duration-btn room-form-opt" data-value="2" onclick="selectFormRoom(this)">2-zal</div>
                 </div>
             </div>
 
@@ -278,9 +298,9 @@
                 <div class="form-group" id="duration-group">
                     <label>OPERATSIYA DAVOMIYLIGI *</label>
                     <div class="duration-selector">
-                        <div class="duration-btn duration-opt selected" data-value="60" onclick="selectDuration(this)">1 soat</div>
-                        <div class="duration-btn duration-opt" data-value="90" onclick="selectDuration(this)">1.5 soat</div>
-                        <div class="duration-btn duration-opt" data-value="120" onclick="selectDuration(this)">2 soat</div>
+                        <div class="duration-btn duration-form-opt selected" data-value="60" onclick="selectDuration(this)">1 soat</div>
+                        <div class="duration-btn duration-form-opt" data-value="90" onclick="selectDuration(this)">1.5 soat</div>
+                        <div class="duration-btn duration-form-opt" data-value="120" onclick="selectDuration(this)">2 soat</div>
                     </div>
                 </div>
 
@@ -299,9 +319,9 @@
                 <div class="form-group">
                     <label>UBORKA DAVOMIYLIGI *</label>
                     <div class="duration-selector">
-                        <div class="duration-btn duration-opt selected" data-value="240" onclick="selectDuration(this)">4 soat</div>
-                        <div class="duration-btn duration-opt" data-value="360" onclick="selectDuration(this)">6 soat</div>
-                        <div class="duration-btn duration-opt" data-value="480" onclick="selectDuration(this)">8 soat</div>
+                        <div class="duration-btn duration-form-opt selected" data-value="240" onclick="selectDuration(this)">4 soat</div>
+                        <div class="duration-btn duration-form-opt" data-value="360" onclick="selectDuration(this)">6 soat</div>
+                        <div class="duration-btn duration-form-opt" data-value="480" onclick="selectDuration(this)">8 soat</div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -418,8 +438,9 @@
         let currentScreen = 'calendar-screen';
         
         let filterOnlyMyOperations = false;
+        let currentRoomFilter = 'all'; // 'all', '1', '2'
+        let formSelectedRoom = '1';    // '1', '2'
         let selectedDurationMinutes = 60;
-        let selectedRoomId = '1';
         let localEventsCache = [];
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -514,16 +535,34 @@
             }
         }
 
+        function setRoomFilter(roomId, btnEl) {
+            currentRoomFilter = roomId;
+            document.querySelectorAll('.room-tab-btn').forEach(b => b.classList.remove('active'));
+            btnEl.classList.add('active');
+            renderFilteredEvents();
+        }
+
+        function selectFormRoom(btnEl) {
+            document.querySelectorAll('.room-form-opt').forEach(b => b.classList.remove('selected'));
+            btnEl.classList.add('selected');
+            formSelectedRoom = btnEl.getAttribute('data-value');
+        }
+
+        function updateFormRoomUI(roomId) {
+            formSelectedRoom = String(roomId || '1');
+            document.querySelectorAll('.room-form-opt').forEach(b => {
+                if (b.getAttribute('data-value') === formSelectedRoom) b.classList.add('selected');
+                else b.classList.remove('selected');
+            });
+        }
+
         function initCalendar() {
             const calendarEl = document.getElementById('calendar');
             
             calendar = new FullCalendar.Calendar(calendarEl, {
                 headerToolbar: false,
-                initialView: 'resourceTimeGridDay',
-                resources: [
-                    { id: '1', title: '1-zal' },
-                    { id: '2', title: '2-zal' }
-                ],
+                dayHeaders: false,
+                initialView: 'timeGridDay',
                 locale: 'uz',
                 height: '100%',
                 
@@ -556,9 +595,9 @@
                     selectedTimeInfo = info;
                     resetForm();
 
-                    const clickedRoom = info.resource ? info.resource.id : '1';
-                    setRoomSelection(clickedRoom);
-                    
+                    const defaultRoom = currentRoomFilter !== 'all' ? currentRoomFilter : '1';
+                    updateFormRoomUI(defaultRoom);
+
                     if (isHeadNurse && !isAdmin) {
                         document.getElementById('modal-title').innerText = "General уборка arizasi";
                         document.getElementById('op-form-body').style.display = 'none';
@@ -602,7 +641,7 @@
                         pauseReason: props.pauseReason
                     };
 
-                    setRoomSelection(props.roomId || '1');
+                    updateFormRoomUI(props.roomId || '1');
 
                     if (props.isCleaning) {
                         document.getElementById('modal-title').innerText = "General уборка tafsilotlari";
@@ -645,10 +684,11 @@
                     const data = doc.data();
                     let color = '#ec4899'; 
                     let statusText = '';
+                    const roomTag = `[${data.roomId || '1'}-zal]`;
 
                     if (data.isCleaning) {
                         color = data.cleaningDone ? '#10b981' : '#64748b';
-                        statusText = `[Uborka: ${data.cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}]`;
+                        statusText = `${roomTag} [Uborka: ${data.cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}]`;
                     } else {
                         if (data.reanimatorApproved) {
                             color = '#10b981';
@@ -661,12 +701,11 @@
                         const consentTxt = data.hasConsent ? 'Rozilik: Bor' : 'Rozilik: Yo‘q';
                         const reanimatorTxt = data.reanimatorApproved ? 'Reanimatolog: Ruxsat' : 'Reanimatolog: Kutilmoqda';
                         
-                        statusText = `[${consentTxt} | ${reanimatorTxt}]`;
+                        statusText = `${roomTag} [${consentTxt} | ${reanimatorTxt}]`;
                     }
 
                     localEventsCache.push({
                         id: doc.id,
-                        resourceId: data.roomId || '1',
                         title: data.isCleaning 
                             ? `${statusText} General уборка | ${data.responsiblePerson || ''}` 
                             : `${statusText} ${data.operationType} | ${data.patientName}`,
@@ -686,17 +725,20 @@
             if (!calendar) return;
             calendar.removeAllEvents();
 
-            if (filterOnlyMyOperations) {
-                const filtered = localEventsCache.filter(e => {
-                    if (isHeadNurse && !isAdmin) {
-                        return e.extendedProps.isCleaning && String(e.extendedProps.userId) === String(user.id);
-                    }
-                    return String(e.extendedProps.userId) === String(user.id);
-                });
-                calendar.addEventSource(filtered);
-            } else {
-                calendar.addEventSource(localEventsCache);
-            }
+            const filtered = localEventsCache.filter(e => {
+                const matchUser = filterOnlyMyOperations
+                    ? (isHeadNurse && !isAdmin
+                        ? (e.extendedProps.isCleaning && String(e.extendedProps.userId) === String(user.id))
+                        : String(e.extendedProps.userId) === String(user.id))
+                    : true;
+
+                const eventRoom = String(e.extendedProps.roomId || '1');
+                const matchRoom = (currentRoomFilter === 'all') ? true : (eventRoom === currentRoomFilter);
+
+                return matchUser && matchRoom;
+            });
+
+            calendar.addEventSource(filtered);
         }
 
         function handleFilterButtonClick() {
@@ -724,22 +766,8 @@
             renderFilteredEvents();
         }
 
-        function selectRoom(btnEl) {
-            document.querySelectorAll('.room-btn').forEach(b => b.classList.remove('selected'));
-            btnEl.classList.add('selected');
-            selectedRoomId = btnEl.getAttribute('data-value');
-        }
-
-        function setRoomSelection(roomId) {
-            selectedRoomId = String(roomId || '1');
-            document.querySelectorAll('.room-btn').forEach(b => {
-                if (b.getAttribute('data-value') === selectedRoomId) b.classList.add('selected');
-                else b.classList.remove('selected');
-            });
-        }
-
         function selectDuration(btnEl) {
-            document.querySelectorAll('.duration-opt').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('.duration-form-opt').forEach(b => b.classList.remove('selected'));
             btnEl.classList.add('selected');
             selectedDurationMinutes = parseInt(btnEl.getAttribute('data-value'));
         }
@@ -826,7 +854,6 @@
             showToast('📋 Kun rejasi nusxalandi!');
         }
 
-        // Обновленная функция управления доступом к полям
         function setFormReadOnly(isDefaultReadOnly, isAuthor = false, isReanimatorRole = false, isHeadNurseRole = false, isCleaning = false) {
             ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names'].forEach(id => {
                 document.getElementById(id).disabled = true;
@@ -876,7 +903,7 @@
                 }
             }
 
-            document.querySelectorAll('.room-btn').forEach(b => {
+            document.querySelectorAll('.room-form-opt').forEach(b => {
                 b.style.pointerEvents = canSave ? 'auto' : 'none';
                 b.style.opacity = canSave ? '1' : '0.7';
             });
@@ -936,10 +963,12 @@
             const newEndMs = new Date(endStr).getTime();
             const currentDocId = currentEventData ? currentEventData.id : null;
 
+            // Проверка накладок отдельно по залу
             const isOverlapping = localEventsCache.some(ev => {
                 if (ev.id === currentDocId) return false;
-                const evRoom = ev.extendedProps?.roomId || '1';
-                if (String(evRoom) !== String(selectedRoomId)) return false;
+                const evRoom = String(ev.extendedProps?.roomId || '1');
+                if (evRoom !== String(formSelectedRoom)) return false;
+
                 const evStartMs = new Date(ev.start).getTime();
                 const evEndMs = new Date(ev.end).getTime();
                 return (newStartMs < evEndMs && newEndMs > evStartMs);
@@ -955,7 +984,7 @@
             if (isCleaning) {
                 eventPayload = {
                     isCleaning: true,
-                    roomId: selectedRoomId,
+                    roomId: formSelectedRoom,
                     responsiblePerson,
                     cleanersNames,
                     cleaningDone,
@@ -965,7 +994,7 @@
                 };
             } else {
                 eventPayload = {
-                    roomId: selectedRoomId,
+                    roomId: formSelectedRoom,
                     patientName: patientName || currentEventData.patientName,
                     operationType: operationType || currentEventData.operationType,
                     doctorName: doctorName || currentEventData.doctorName,
@@ -995,13 +1024,13 @@
 
                 let notifyText = '';
                 if (isCleaning) {
-                    notifyText = `<b>GENERAL UBORKA ARIZASI (${selectedRoomId}-zal)</b>\n\n` +
+                    notifyText = `<b>GENERAL UBORKA ARIZASI (${formSelectedRoom}-zal)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Mas'ul:</b> ${responsiblePerson}\n` +
                                  `<b>Sanitarkalar:</b> ${cleanersNames}\n` +
                                  `<b>Holat:</b> ${cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}`;
                 } else if (isNew) {
-                    notifyText = `<b>YANGI OPERATSIYA ARIZASI (${selectedRoomId}-zal)</b>\n\n` +
+                    notifyText = `<b>YANGI OPERATSIYA ARIZASI (${formSelectedRoom}-zal)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${patientName}\n` +
                                  `<b>Operatsiya:</b> ${operationType}\n` +
@@ -1009,7 +1038,7 @@
                                  `<b>Rozilik:</b> ${hasConsent ? 'Mavjud' : 'Yo‘q'}\n` +
                                  `<b>Reanimatolog:</b> ${reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'}`;
                 } else {
-                    notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI (${selectedRoomId}-zal)</b>\n\n` +
+                    notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI (${formSelectedRoom}-zal)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${eventPayload.patientName}\n` +
                                  `<b>Operatsiya:</b> ${eventPayload.operationType}\n` +
@@ -1123,11 +1152,11 @@
             document.getElementById('reanimator-approved').checked = false;
             document.getElementById('cleaning-done').checked = false;
             
-            selectedRoomId = '1';
-            setRoomSelection('1');
+            formSelectedRoom = '1';
+            updateFormRoomUI('1');
 
             selectedDurationMinutes = 60;
-            document.querySelectorAll('.duration-opt').forEach((b, idx) => {
+            document.querySelectorAll('.duration-form-opt').forEach((b, idx) => {
                 if (idx === 0) b.classList.add('selected');
                 else b.classList.remove('selected');
             });
@@ -1184,12 +1213,15 @@
             if (btn) btn.classList.add('active');
 
             const dateNav = document.getElementById('date-nav-bar');
+            const roomNav = document.getElementById('room-nav-bar');
 
             if (screenId === 'calendar-screen') {
                 dateNav.style.display = 'flex';
+                roomNav.style.display = 'flex';
                 if (calendar) setTimeout(() => calendar.updateSize(), 100);
             } else {
                 dateNav.style.display = 'none';
+                roomNav.style.display = 'none';
             }
         }
 
