@@ -240,7 +240,7 @@
         </div>
 
         <div class="bottom-toolbar">
-            <button class="action-btn active" id="filter-block-btn" onclick="handleOperblockButtonClick()">1-operblok</button>
+            <button class="action-btn" id="filter-my-btn" onclick="handleFilterButtonClick()">Barcha arizalar</button>
             <button class="action-btn" onclick="generateDailyPlan()">📋 Kun rejasi</button>
             <button class="action-btn active" id="tab-btn-chat" onclick="switchTab('chat-screen', this)">💬 Chat</button>
         </div>
@@ -408,7 +408,7 @@
         let isHeadNurse = HEAD_NURSE_IDS.includes(String(user.id));
         let currentScreen = 'calendar-screen';
         
-        let activeOperblock = 1;
+        let filterOnlyMyOperations = false;
         let selectedDurationMinutes = 60;
         let localEventsCache = [];
 
@@ -544,13 +544,13 @@
                     resetForm();
                     
                     if (isHeadNurse && !isAdmin) {
-                        document.getElementById('modal-title').innerText = `${activeOperblock}-operblok: General уборка arizasi`;
+                        document.getElementById('modal-title').innerText = "General уборка arizasi";
                         document.getElementById('op-form-body').style.display = 'none';
                         document.getElementById('cleaning-form-body').style.display = 'block';
                         selectedDurationMinutes = 240;
                         setFormReadOnly(false, false, isReanimator, isHeadNurse, true);
                     } else {
-                        document.getElementById('modal-title').innerText = `${activeOperblock}-operblok: Yangi ariza`;
+                        document.getElementById('modal-title').innerText = "Yangi ariza";
                         document.getElementById('op-form-body').style.display = 'block';
                         document.getElementById('cleaning-form-body').style.display = 'none';
                         document.getElementById('duration-group').style.display = 'block';
@@ -570,7 +570,6 @@
                     currentEventData = { 
                         id: event.id, 
                         userId: props.userId, 
-                        operblock: props.operblock || 1,
                         startStr: event.startStr, 
                         endStr: event.endStr,
                         isCleaning: props.isCleaning || false,
@@ -587,7 +586,7 @@
                     };
 
                     if (props.isCleaning) {
-                        document.getElementById('modal-title').innerText = `${props.operblock || 1}-operblok: General уборка tafsilotlari`;
+                        document.getElementById('modal-title').innerText = "General уборка tafsilotlari";
                         document.getElementById('op-form-body').style.display = 'none';
                         document.getElementById('cleaning-form-body').style.display = 'block';
 
@@ -595,7 +594,7 @@
                         document.getElementById('cleaners-names').value = props.cleanersNames || '';
                         document.getElementById('cleaning-done').checked = props.cleaningDone || false;
                     } else {
-                        document.getElementById('modal-title').innerText = `${props.operblock || 1}-operblok: Operatsiya tafsilotlari`;
+                        document.getElementById('modal-title').innerText = "Operatsiya tafsilotlari";
                         document.getElementById('op-form-body').style.display = 'block';
                         document.getElementById('cleaning-form-body').style.display = 'none';
 
@@ -656,10 +655,7 @@
                         backgroundColor: color,
                         borderColor: color,
                         textColor: (color === '#eab308') ? '#0f172a' : '#ffffff',
-                        extendedProps: {
-                            ...data,
-                            operblock: data.operblock || 1
-                        }
+                        extendedProps: data
                     });
                 });
                 renderFilteredEvents();
@@ -670,31 +666,39 @@
             if (!calendar) return;
             calendar.removeAllEvents();
 
-            const filtered = localEventsCache.filter(e => {
-                const eventOperblock = e.extendedProps.operblock || 1;
-                return Number(eventOperblock) === Number(activeOperblock);
-            });
-            calendar.addEventSource(filtered);
-        }
-
-        function handleOperblockButtonClick() {
-            if (currentScreen !== 'calendar-screen') {
-                switchTab('calendar-screen', null);
+            if (filterOnlyMyOperations) {
+                const filtered = localEventsCache.filter(e => {
+                    if (isHeadNurse && !isAdmin) {
+                        return e.extendedProps.isCleaning && String(e.extendedProps.userId) === String(user.id);
+                    }
+                    return String(e.extendedProps.userId) === String(user.id);
+                });
+                calendar.addEventSource(filtered);
             } else {
-                toggleOperblockFilter();
+                calendar.addEventSource(localEventsCache);
             }
         }
 
-        function toggleOperblockFilter() {
-            activeOperblock = activeOperblock === 1 ? 2 : 1;
-            const filterBtn = document.getElementById('filter-block-btn');
-
-            if (activeOperblock === 1) {
-                filterBtn.innerText = '1-operblok';
-                showToast('1-operblok kalendari ko‘rsatilmoqda');
+        function handleFilterButtonClick() {
+            if (currentScreen !== 'calendar-screen') {
+                switchTab('calendar-screen', null);
             } else {
-                filterBtn.innerText = '2-operblok';
-                showToast('2-operblok kalendari ko‘rsatilmoqda');
+                toggleMyOperationsFilter();
+            }
+        }
+
+        function toggleMyOperationsFilter() {
+            filterOnlyMyOperations = !filterOnlyMyOperations;
+            const filterBtn = document.getElementById('filter-my-btn');
+
+            if (filterOnlyMyOperations) {
+                filterBtn.innerText = 'Mening arizalarim';
+                filterBtn.classList.add('active');
+                showToast(isHeadNurse && !isAdmin ? 'Faqat sizning uborkalaringiz ko‘rsatilmoqda' : 'Faqat sizning operatsiyalaringiz ko‘rsatilmoqda');
+            } else {
+                filterBtn.innerText = 'Barcha arizalar';
+                filterBtn.classList.remove('active');
+                showToast('Barcha arizalar ko‘rsatilmoqda');
             }
 
             renderFilteredEvents();
@@ -736,11 +740,9 @@
 
             const dayEvents = localEventsCache.filter(e => {
                 const evDate = new Date(e.start);
-                const eventOperblock = e.extendedProps.operblock || 1;
                 return evDate.getFullYear() === selYear &&
                        evDate.getMonth() === selMonth &&
-                       evDate.getDate() === selDay &&
-                       Number(eventOperblock) === Number(activeOperblock);
+                       evDate.getDate() === selDay;
             });
 
             dayEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -749,7 +751,7 @@
                 day: '2-digit', month: '2-digit', year: 'numeric', weekday: 'long'
             });
 
-            let planText = `📋 KUNLIK OPERATSIYALAR REJASI (${activeOperblock}-OPERBLOK): ${formattedDate.toUpperCase()}\n`;
+            let planText = `📋 KUNLIK OPERATSIYALAR REJASI: ${formattedDate.toUpperCase()}\n`;
             planText += `===================================\n\n`;
 
             if (dayEvents.length === 0) {
@@ -776,7 +778,7 @@
                 });
             }
 
-            document.getElementById('plan-modal-title').innerText = `${formattedDate} (${activeOperblock}-operblok) rejasi`;
+            document.getElementById('plan-modal-title').innerText = `${formattedDate} rejasi`;
             document.getElementById('daily-plan-text').value = planText;
             document.getElementById('plan-modal-overlay').style.display = 'flex';
         }
@@ -893,13 +895,9 @@
             const newStartMs = new Date(startStr).getTime();
             const newEndMs = new Date(endStr).getTime();
             const currentDocId = currentEventData ? currentEventData.id : null;
-            const targetOperblock = currentEventData ? (currentEventData.operblock || 1) : activeOperblock;
 
             const isOverlapping = localEventsCache.some(ev => {
                 if (ev.id === currentDocId) return false;
-                const evOperblock = ev.extendedProps.operblock || 1;
-                if (Number(evOperblock) !== Number(targetOperblock)) return false;
-
                 const evStartMs = new Date(ev.start).getTime();
                 const evEndMs = new Date(ev.end).getTime();
                 return (newStartMs < evEndMs && newEndMs > evStartMs);
@@ -915,7 +913,6 @@
             if (isCleaning) {
                 eventPayload = {
                     isCleaning: true,
-                    operblock: targetOperblock,
                     responsiblePerson,
                     cleanersNames,
                     cleaningDone,
@@ -925,7 +922,6 @@
                 };
             } else {
                 eventPayload = {
-                    operblock: targetOperblock,
                     patientName: patientName || currentEventData.patientName,
                     operationType: operationType || currentEventData.operationType,
                     doctorName: doctorName || currentEventData.doctorName,
@@ -955,13 +951,13 @@
 
                 let notifyText = '';
                 if (isCleaning) {
-                    notifyText = `<b>GENERAL UBORKA ARIZASI (${targetOperblock}-OPERBLOK)</b>\n\n` +
+                    notifyText = `<b>GENERAL UBORKA ARIZASI</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Mas'ul:</b> ${responsiblePerson}\n` +
                                  `<b>Sanitarkalar:</b> ${cleanersNames}\n` +
                                  `<b>Holat:</b> ${cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}`;
                 } else if (isNew) {
-                    notifyText = `<b>YANGI OPERATSIYA ARIZASI (${targetOperblock}-OPERBLOK)</b>\n\n` +
+                    notifyText = `<b>YANGI OPERATSIYA ARIZASI</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${patientName}\n` +
                                  `<b>Operatsiya:</b> ${operationType}\n` +
@@ -969,7 +965,7 @@
                                  `<b>Rozilik:</b> ${hasConsent ? 'Mavjud' : 'Yo‘q'}\n` +
                                  `<b>Reanimatolog:</b> ${reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'}`;
                 } else {
-                    notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI (${targetOperblock}-OPERBLOK)</b>\n\n` +
+                    notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${eventPayload.patientName}\n` +
                                  `<b>Operatsiya:</b> ${eventPayload.operationType}\n` +
@@ -1006,7 +1002,7 @@
 
                 const dateFormatted = formatTashkentTime(currentEventData.startStr, { day: '2-digit', month: '2-digit', year: 'numeric' });
                 sendTelegramGroupNotification(
-                    `<b>OPERATSIYA TAYYORGARLIGI PRIONASTANOVLENA (${currentEventData.operblock || 1}-OPERBLOK)</b>\n\n` +
+                    `<b>OPERATSIYA TAYYORGARLIGI PRIONASTANOVLENA</b>\n\n` +
                     `<b>Sana:</b> ${dateFormatted}\n` +
                     `<b>Bemor:</b> ${currentEventData.patientName}\n` +
                     `<b>Operatsiya:</b> ${currentEventData.operationType}\n` +
@@ -1045,7 +1041,7 @@
                 const timeFormatted = formatTashkentTime(currentEventData.startStr, { hour: '2-digit', minute: '2-digit' });
 
                 sendTelegramGroupNotification(
-                    `<b>OPERATSIYA BEKOR QILINDI / O‘CHIRILDI (${currentEventData.operblock || 1}-OPERBLOK)</b>\n\n` +
+                    `<b>OPERATSIYA BEKOR QILINDI / O‘CHIRILDI</b>\n\n` +
                     `<b>Rejalashtirilgan edi:</b> ${dateFormatted} soat ${timeFormatted} da\n` +
                     `<b>Bemor:</b> ${currentEventData.patientName}\n` +
                     `<b>Operatsiya:</b> ${currentEventData.operationType}\n` +
