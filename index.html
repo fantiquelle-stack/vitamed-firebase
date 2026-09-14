@@ -74,19 +74,6 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.01; cursor: pointer;
         }
 
-        /* Переключатель залов */
-        .room-selector-bar {
-            display: flex; gap: 6px; padding: 6px 12px; background: var(--card-bg); border-bottom: 1px solid var(--border);
-        }
-        .room-tab-btn {
-            flex: 1; padding: 8px; border: 1px solid var(--border); background: #f8fafc;
-            border-radius: 8px; font-weight: 700; font-size: 13px; color: var(--text-main);
-            cursor: pointer; text-align: center; transition: all 0.2s;
-        }
-        .room-tab-btn.active {
-            background: var(--primary); color: #ffffff; border-color: var(--primary);
-        }
-
         .screen { display: none; flex: 1; padding: 6px; overflow-y: auto; }
         .screen.active { display: flex; flex-direction: column; }
 
@@ -238,13 +225,6 @@
             <button class="nav-arrow-btn" onclick="navigateDay(1)">❯</button>
         </div>
 
-        <!-- Переключатель залов -->
-        <div class="room-selector-bar" id="room-nav-bar">
-            <button class="room-tab-btn active" onclick="setRoomFilter('all', this)">Barcha zallar</button>
-            <button class="room-tab-btn" onclick="setRoomFilter('1', this)">1-zal</button>
-            <button class="room-tab-btn" onclick="setRoomFilter('2', this)">2-zal</button>
-        </div>
-
         <div id="calendar-screen" class="screen active">
             <div id="calendar"></div>
         </div>
@@ -260,7 +240,7 @@
         </div>
 
         <div class="bottom-toolbar">
-            <button class="action-btn" id="filter-my-btn" onclick="handleFilterButtonClick()">Barcha arizalar</button>
+            <button class="action-btn active" id="filter-block-btn" onclick="handleOperblockButtonClick()">1-operblok</button>
             <button class="action-btn" onclick="generateDailyPlan()">📋 Kun rejasi</button>
             <button class="action-btn active" id="tab-btn-chat" onclick="switchTab('chat-screen', this)">💬 Chat</button>
         </div>
@@ -270,15 +250,6 @@
     <div class="modal-overlay" id="modal-overlay">
         <div class="modal">
             <h3 id="modal-title">Operatsiya arizasi</h3>
-
-            <!-- Выбор операционного зала -->
-            <div class="form-group" id="modal-room-group">
-                <label>OPERATSIYA ZALI *</label>
-                <div class="duration-selector">
-                    <div class="duration-btn room-form-opt selected" data-value="1" onclick="selectFormRoom(this)">1-zal</div>
-                    <div class="duration-btn room-form-opt" data-value="2" onclick="selectFormRoom(this)">2-zal</div>
-                </div>
-            </div>
 
             <!-- Форма обычной операции -->
             <div id="op-form-body">
@@ -298,9 +269,9 @@
                 <div class="form-group" id="duration-group">
                     <label>OPERATSIYA DAVOMIYLIGI *</label>
                     <div class="duration-selector">
-                        <div class="duration-btn duration-form-opt selected" data-value="60" onclick="selectDuration(this)">1 soat</div>
-                        <div class="duration-btn duration-form-opt" data-value="90" onclick="selectDuration(this)">1.5 soat</div>
-                        <div class="duration-btn duration-form-opt" data-value="120" onclick="selectDuration(this)">2 soat</div>
+                        <div class="duration-btn selected" data-value="60" onclick="selectDuration(this)">1 soat</div>
+                        <div class="duration-btn" data-value="90" onclick="selectDuration(this)">1.5 soat</div>
+                        <div class="duration-btn" data-value="120" onclick="selectDuration(this)">2 soat</div>
                     </div>
                 </div>
 
@@ -319,9 +290,9 @@
                 <div class="form-group">
                     <label>UBORKA DAVOMIYLIGI *</label>
                     <div class="duration-selector">
-                        <div class="duration-btn duration-form-opt selected" data-value="240" onclick="selectDuration(this)">4 soat</div>
-                        <div class="duration-btn duration-form-opt" data-value="360" onclick="selectDuration(this)">6 soat</div>
-                        <div class="duration-btn duration-form-opt" data-value="480" onclick="selectDuration(this)">8 soat</div>
+                        <div class="duration-btn selected" data-value="240" onclick="selectDuration(this)">4 soat</div>
+                        <div class="duration-btn" data-value="360" onclick="selectDuration(this)">6 soat</div>
+                        <div class="duration-btn" data-value="480" onclick="selectDuration(this)">8 soat</div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -437,9 +408,7 @@
         let isHeadNurse = HEAD_NURSE_IDS.includes(String(user.id));
         let currentScreen = 'calendar-screen';
         
-        let filterOnlyMyOperations = false;
-        let currentRoomFilter = 'all'; // 'all', '1', '2'
-        let formSelectedRoom = '1';    // '1', '2'
+        let activeOperblock = 1;
         let selectedDurationMinutes = 60;
         let localEventsCache = [];
 
@@ -535,27 +504,6 @@
             }
         }
 
-        function setRoomFilter(roomId, btnEl) {
-            currentRoomFilter = roomId;
-            document.querySelectorAll('.room-tab-btn').forEach(b => b.classList.remove('active'));
-            btnEl.classList.add('active');
-            renderFilteredEvents();
-        }
-
-        function selectFormRoom(btnEl) {
-            document.querySelectorAll('.room-form-opt').forEach(b => b.classList.remove('selected'));
-            btnEl.classList.add('selected');
-            formSelectedRoom = btnEl.getAttribute('data-value');
-        }
-
-        function updateFormRoomUI(roomId) {
-            formSelectedRoom = String(roomId || '1');
-            document.querySelectorAll('.room-form-opt').forEach(b => {
-                if (b.getAttribute('data-value') === formSelectedRoom) b.classList.add('selected');
-                else b.classList.remove('selected');
-            });
-        }
-
         function initCalendar() {
             const calendarEl = document.getElementById('calendar');
             
@@ -594,18 +542,15 @@
                     currentEventData = null;
                     selectedTimeInfo = info;
                     resetForm();
-
-                    const defaultRoom = currentRoomFilter !== 'all' ? currentRoomFilter : '1';
-                    updateFormRoomUI(defaultRoom);
-
+                    
                     if (isHeadNurse && !isAdmin) {
-                        document.getElementById('modal-title').innerText = "General уборка arizasi";
+                        document.getElementById('modal-title').innerText = `${activeOperblock}-operblok: General уборка arizasi`;
                         document.getElementById('op-form-body').style.display = 'none';
                         document.getElementById('cleaning-form-body').style.display = 'block';
                         selectedDurationMinutes = 240;
                         setFormReadOnly(false, false, isReanimator, isHeadNurse, true);
                     } else {
-                        document.getElementById('modal-title').innerText = "Yangi ariza";
+                        document.getElementById('modal-title').innerText = `${activeOperblock}-operblok: Yangi ariza`;
                         document.getElementById('op-form-body').style.display = 'block';
                         document.getElementById('cleaning-form-body').style.display = 'none';
                         document.getElementById('duration-group').style.display = 'block';
@@ -625,7 +570,7 @@
                     currentEventData = { 
                         id: event.id, 
                         userId: props.userId, 
-                        roomId: props.roomId || '1',
+                        operblock: props.operblock || 1,
                         startStr: event.startStr, 
                         endStr: event.endStr,
                         isCleaning: props.isCleaning || false,
@@ -641,10 +586,8 @@
                         pauseReason: props.pauseReason
                     };
 
-                    updateFormRoomUI(props.roomId || '1');
-
                     if (props.isCleaning) {
-                        document.getElementById('modal-title').innerText = "General уборка tafsilotlari";
+                        document.getElementById('modal-title').innerText = `${props.operblock || 1}-operblok: General уборка tafsilotlari`;
                         document.getElementById('op-form-body').style.display = 'none';
                         document.getElementById('cleaning-form-body').style.display = 'block';
 
@@ -652,7 +595,7 @@
                         document.getElementById('cleaners-names').value = props.cleanersNames || '';
                         document.getElementById('cleaning-done').checked = props.cleaningDone || false;
                     } else {
-                        document.getElementById('modal-title').innerText = "Operatsiya tafsilotlari";
+                        document.getElementById('modal-title').innerText = `${props.operblock || 1}-operblok: Operatsiya tafsilotlari`;
                         document.getElementById('op-form-body').style.display = 'block';
                         document.getElementById('cleaning-form-body').style.display = 'none';
 
@@ -684,11 +627,10 @@
                     const data = doc.data();
                     let color = '#ec4899'; 
                     let statusText = '';
-                    const roomTag = `[${data.roomId || '1'}-zal]`;
 
                     if (data.isCleaning) {
                         color = data.cleaningDone ? '#10b981' : '#64748b';
-                        statusText = `${roomTag} [Uborka: ${data.cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}]`;
+                        statusText = `[Uborka: ${data.cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}]`;
                     } else {
                         if (data.reanimatorApproved) {
                             color = '#10b981';
@@ -701,7 +643,7 @@
                         const consentTxt = data.hasConsent ? 'Rozilik: Bor' : 'Rozilik: Yo‘q';
                         const reanimatorTxt = data.reanimatorApproved ? 'Reanimatolog: Ruxsat' : 'Reanimatolog: Kutilmoqda';
                         
-                        statusText = `${roomTag} [${consentTxt} | ${reanimatorTxt}]`;
+                        statusText = `[${consentTxt} | ${reanimatorTxt}]`;
                     }
 
                     localEventsCache.push({
@@ -714,7 +656,10 @@
                         backgroundColor: color,
                         borderColor: color,
                         textColor: (color === '#eab308') ? '#0f172a' : '#ffffff',
-                        extendedProps: data
+                        extendedProps: {
+                            ...data,
+                            operblock: data.operblock || 1
+                        }
                     });
                 });
                 renderFilteredEvents();
@@ -726,48 +671,37 @@
             calendar.removeAllEvents();
 
             const filtered = localEventsCache.filter(e => {
-                const matchUser = filterOnlyMyOperations
-                    ? (isHeadNurse && !isAdmin
-                        ? (e.extendedProps.isCleaning && String(e.extendedProps.userId) === String(user.id))
-                        : String(e.extendedProps.userId) === String(user.id))
-                    : true;
-
-                const eventRoom = String(e.extendedProps.roomId || '1');
-                const matchRoom = (currentRoomFilter === 'all') ? true : (eventRoom === currentRoomFilter);
-
-                return matchUser && matchRoom;
+                const eventOperblock = e.extendedProps.operblock || 1;
+                return Number(eventOperblock) === Number(activeOperblock);
             });
-
             calendar.addEventSource(filtered);
         }
 
-        function handleFilterButtonClick() {
+        function handleOperblockButtonClick() {
             if (currentScreen !== 'calendar-screen') {
                 switchTab('calendar-screen', null);
             } else {
-                toggleMyOperationsFilter();
+                toggleOperblockFilter();
             }
         }
 
-        function toggleMyOperationsFilter() {
-            filterOnlyMyOperations = !filterOnlyMyOperations;
-            const filterBtn = document.getElementById('filter-my-btn');
+        function toggleOperblockFilter() {
+            activeOperblock = activeOperblock === 1 ? 2 : 1;
+            const filterBtn = document.getElementById('filter-block-btn');
 
-            if (filterOnlyMyOperations) {
-                filterBtn.innerText = 'Mening arizalarim';
-                filterBtn.classList.add('active');
-                showToast(isHeadNurse && !isAdmin ? 'Faqat sizning uborkalaringiz ko‘rsatilmoqda' : 'Faqat sizning operatsiyalaringiz ko‘rsatilmoqda');
+            if (activeOperblock === 1) {
+                filterBtn.innerText = '1-operblok';
+                showToast('1-operblok kalendari ko‘rsatilmoqda');
             } else {
-                filterBtn.innerText = 'Barcha arizalar';
-                filterBtn.classList.remove('active');
-                showToast('Barcha arizalar ko‘rsatilmoqda');
+                filterBtn.innerText = '2-operblok';
+                showToast('2-operblok kalendari ko‘rsatilmoqda');
             }
 
             renderFilteredEvents();
         }
 
         function selectDuration(btnEl) {
-            document.querySelectorAll('.duration-form-opt').forEach(b => b.classList.remove('selected'));
+            document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('selected'));
             btnEl.classList.add('selected');
             selectedDurationMinutes = parseInt(btnEl.getAttribute('data-value'));
         }
@@ -802,9 +736,11 @@
 
             const dayEvents = localEventsCache.filter(e => {
                 const evDate = new Date(e.start);
+                const eventOperblock = e.extendedProps.operblock || 1;
                 return evDate.getFullYear() === selYear &&
                        evDate.getMonth() === selMonth &&
-                       evDate.getDate() === selDay;
+                       evDate.getDate() === selDay &&
+                       Number(eventOperblock) === Number(activeOperblock);
             });
 
             dayEvents.sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -813,7 +749,7 @@
                 day: '2-digit', month: '2-digit', year: 'numeric', weekday: 'long'
             });
 
-            let planText = `📋 KUNLIK OPERATSIYALAR REJASI: ${formattedDate.toUpperCase()}\n`;
+            let planText = `📋 KUNLIK OPERATSIYALAR REJASI (${activeOperblock}-OPERBLOK): ${formattedDate.toUpperCase()}\n`;
             planText += `===================================\n\n`;
 
             if (dayEvents.length === 0) {
@@ -823,15 +759,14 @@
                     const props = ev.extendedProps;
                     const startTime = formatTashkentTime(ev.start, { hour: '2-digit', minute: '2-digit' });
                     const endTime = formatTashkentTime(ev.end, { hour: '2-digit', minute: '2-digit' });
-                    const roomName = `${props.roomId || '1'}-zal`;
 
                     if (props.isCleaning) {
-                        planText += `${idx + 1}. [${startTime} - ${endTime}] (${roomName}) 🧹 GENERAL UBORKA\n`;
+                        planText += `${idx + 1}. [${startTime} - ${endTime}] 🧹 GENERAL UBORKA\n`;
                         planText += `   Mas'ul: ${props.responsiblePerson}\n`;
                         planText += `   Sanitarkalar: ${props.cleanersNames}\n`;
                         planText += `   Holat: ${props.cleaningDone ? 'Bajarildi' : 'Bajarilmadi'}\n`;
                     } else {
-                        planText += `${idx + 1}. [${startTime} - ${endTime}] (${roomName})\n`;
+                        planText += `${idx + 1}. [${startTime} - ${endTime}]\n`;
                         planText += `   Bemor: ${props.patientName}\n`;
                         planText += `   Operatsiya: ${props.operationType}\n`;
                         planText += `   Shifokor: ${props.doctorName}\n`;
@@ -841,7 +776,7 @@
                 });
             }
 
-            document.getElementById('plan-modal-title').innerText = `${formattedDate} rejasi`;
+            document.getElementById('plan-modal-title').innerText = `${formattedDate} (${activeOperblock}-operblok) rejasi`;
             document.getElementById('daily-plan-text').value = planText;
             document.getElementById('plan-modal-overlay').style.display = 'flex';
         }
@@ -854,6 +789,7 @@
             showToast('📋 Kun rejasi nusxalandi!');
         }
 
+        // Обновленная функция управления доступом к полям
         function setFormReadOnly(isDefaultReadOnly, isAuthor = false, isReanimatorRole = false, isHeadNurseRole = false, isCleaning = false) {
             ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names'].forEach(id => {
                 document.getElementById(id).disabled = true;
@@ -902,11 +838,6 @@
                     }
                 }
             }
-
-            document.querySelectorAll('.room-form-opt').forEach(b => {
-                b.style.pointerEvents = canSave ? 'auto' : 'none';
-                b.style.opacity = canSave ? '1' : '0.7';
-            });
 
             document.getElementById('btn-save-op').style.display = canSave ? 'block' : 'none';
         }
@@ -962,12 +893,12 @@
             const newStartMs = new Date(startStr).getTime();
             const newEndMs = new Date(endStr).getTime();
             const currentDocId = currentEventData ? currentEventData.id : null;
+            const targetOperblock = currentEventData ? (currentEventData.operblock || 1) : activeOperblock;
 
-            // Проверка накладок отдельно по залу
             const isOverlapping = localEventsCache.some(ev => {
                 if (ev.id === currentDocId) return false;
-                const evRoom = String(ev.extendedProps?.roomId || '1');
-                if (evRoom !== String(formSelectedRoom)) return false;
+                const evOperblock = ev.extendedProps.operblock || 1;
+                if (Number(evOperblock) !== Number(targetOperblock)) return false;
 
                 const evStartMs = new Date(ev.start).getTime();
                 const evEndMs = new Date(ev.end).getTime();
@@ -975,7 +906,7 @@
             });
 
             if (isOverlapping && !currentEventData && !isAdmin) {
-                return showToast('⚠️ Ushbu zalda bu vaqt allaqachon band qilingan!');
+                return showToast('⚠️ Bu vaqt allaqachon band qilingan!');
             }
 
             const isNew = !currentEventData;
@@ -984,7 +915,7 @@
             if (isCleaning) {
                 eventPayload = {
                     isCleaning: true,
-                    roomId: formSelectedRoom,
+                    operblock: targetOperblock,
                     responsiblePerson,
                     cleanersNames,
                     cleaningDone,
@@ -994,7 +925,7 @@
                 };
             } else {
                 eventPayload = {
-                    roomId: formSelectedRoom,
+                    operblock: targetOperblock,
                     patientName: patientName || currentEventData.patientName,
                     operationType: operationType || currentEventData.operationType,
                     doctorName: doctorName || currentEventData.doctorName,
@@ -1024,13 +955,13 @@
 
                 let notifyText = '';
                 if (isCleaning) {
-                    notifyText = `<b>GENERAL UBORKA ARIZASI (${formSelectedRoom}-zal)</b>\n\n` +
+                    notifyText = `<b>GENERAL UBORKA ARIZASI (${targetOperblock}-OPERBLOK)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Mas'ul:</b> ${responsiblePerson}\n` +
                                  `<b>Sanitarkalar:</b> ${cleanersNames}\n` +
                                  `<b>Holat:</b> ${cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}`;
                 } else if (isNew) {
-                    notifyText = `<b>YANGI OPERATSIYA ARIZASI (${formSelectedRoom}-zal)</b>\n\n` +
+                    notifyText = `<b>YANGI OPERATSIYA ARIZASI (${targetOperblock}-OPERBLOK)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${patientName}\n` +
                                  `<b>Operatsiya:</b> ${operationType}\n` +
@@ -1038,7 +969,7 @@
                                  `<b>Rozilik:</b> ${hasConsent ? 'Mavjud' : 'Yo‘q'}\n` +
                                  `<b>Reanimatolog:</b> ${reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'}`;
                 } else {
-                    notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI (${formSelectedRoom}-zal)</b>\n\n` +
+                    notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI (${targetOperblock}-OPERBLOK)</b>\n\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${eventPayload.patientName}\n` +
                                  `<b>Operatsiya:</b> ${eventPayload.operationType}\n` +
@@ -1075,7 +1006,7 @@
 
                 const dateFormatted = formatTashkentTime(currentEventData.startStr, { day: '2-digit', month: '2-digit', year: 'numeric' });
                 sendTelegramGroupNotification(
-                    `<b>OPERATSIYA TAYYORGARLIGI PRIONASTANOVLENA (${currentEventData.roomId || '1'}-zal)</b>\n\n` +
+                    `<b>OPERATSIYA TAYYORGARLIGI PRIONASTANOVLENA (${currentEventData.operblock || 1}-OPERBLOK)</b>\n\n` +
                     `<b>Sana:</b> ${dateFormatted}\n` +
                     `<b>Bemor:</b> ${currentEventData.patientName}\n` +
                     `<b>Operatsiya:</b> ${currentEventData.operationType}\n` +
@@ -1114,7 +1045,7 @@
                 const timeFormatted = formatTashkentTime(currentEventData.startStr, { hour: '2-digit', minute: '2-digit' });
 
                 sendTelegramGroupNotification(
-                    `<b>OPERATSIYA BEKOR QILINDI / O‘CHIRILDI (${currentEventData.roomId || '1}-zal)</b>\n\n` +
+                    `<b>OPERATSIYA BEKOR QILINDI / O‘CHIRILDI (${currentEventData.operblock || 1}-OPERBLOK)</b>\n\n` +
                     `<b>Rejalashtirilgan edi:</b> ${dateFormatted} soat ${timeFormatted} da\n` +
                     `<b>Bemor:</b> ${currentEventData.patientName}\n` +
                     `<b>Operatsiya:</b> ${currentEventData.operationType}\n` +
@@ -1152,11 +1083,8 @@
             document.getElementById('reanimator-approved').checked = false;
             document.getElementById('cleaning-done').checked = false;
             
-            formSelectedRoom = '1';
-            updateFormRoomUI('1');
-
             selectedDurationMinutes = 60;
-            document.querySelectorAll('.duration-form-opt').forEach((b, idx) => {
+            document.querySelectorAll('.duration-btn').forEach((b, idx) => {
                 if (idx === 0) b.classList.add('selected');
                 else b.classList.remove('selected');
             });
@@ -1213,15 +1141,12 @@
             if (btn) btn.classList.add('active');
 
             const dateNav = document.getElementById('date-nav-bar');
-            const roomNav = document.getElementById('room-nav-bar');
 
             if (screenId === 'calendar-screen') {
                 dateNav.style.display = 'flex';
-                roomNav.style.display = 'flex';
                 if (calendar) setTimeout(() => calendar.updateSize(), 100);
             } else {
                 dateNav.style.display = 'none';
-                roomNav.style.display = 'none';
             }
         }
 
