@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Operatsiyalar rejasi</title>
     
-    <!-- Telegram SDK & FullCalendar (включая плагин resources) -->
+    <!-- Telegram SDK & FullCalendar -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/uz.global.min.js"></script>
@@ -87,26 +87,17 @@
         }
 
         .fc-toolbar { display: none !important; }
-        
-        /* Стилизация заголовков операционных залов */
-        .fc-col-header-cell {
-            background-color: #e2e8f0 !important;
-            padding: 6px 0 !important;
-            font-weight: 800 !important;
-            font-size: 13px !important;
-            color: var(--primary-active) !important;
-            border-bottom: 2px solid var(--border) !important;
-        }
+        .fc-col-header { display: none !important; }
 
         .fc-timegrid-slot { height: 55px !important; border-bottom: 1px dashed #e2e8f0 !important; }
 
-        .fc-timegrid-axis { width: 60px !important; }
-        .fc-timegrid-slot-label { width: 60px !important; }
+        .fc-timegrid-axis { width: 70px !important; }
+        .fc-timegrid-slot-label { width: 70px !important; }
         .fc-timegrid-axis-cushion, .fc-timegrid-slot-label-cushion {
-            font-size: 12px !important;
+            font-size: 13px !important;
             font-weight: 700 !important;
             color: #475569 !important;
-            padding: 4px !important;
+            padding: 6px 8px !important;
             text-align: center !important;
         }
 
@@ -129,7 +120,7 @@
             margin-bottom: 2px;
         }
         .fc-event-title {
-            font-size: 12px !important;
+            font-size: 13px !important;
             font-weight: 700 !important;
             line-height: 1.25 !important;
             white-space: normal !important;
@@ -178,7 +169,7 @@
         
         .form-group { margin-bottom: 14px; }
         .form-group label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; }
-        .form-group input[type="text"], .form-group select { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; outline: none; background: #f8fafc; }
+        .form-group input[type="text"] { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; outline: none; background: #f8fafc; }
         
         .duration-selector { display: flex; gap: 8px; }
         .duration-btn {
@@ -259,15 +250,6 @@
     <div class="modal-overlay" id="modal-overlay">
         <div class="modal">
             <h3 id="modal-title">Operatsiya arizasi</h3>
-
-            <!-- Выбор операционной -->
-            <div class="form-group" id="op-room-group">
-                <label>OPERATSIYA XONASI *</label>
-                <select id="operating-room-select">
-                    <option value="room1">1-operatsiya xonasi</option>
-                    <option value="room2">2-operatsiya xonasi</option>
-                </select>
-            </div>
 
             <!-- Форма обычной операции -->
             <div id="op-form-body">
@@ -527,11 +509,8 @@
             
             calendar = new FullCalendar.Calendar(calendarEl, {
                 headerToolbar: false,
-                initialView: 'resourceTimeGridDay',
-                resources: [
-                    { id: 'room1', title: '1-operatsiya xonasi' },
-                    { id: 'room2', title: '2-operatsiya xonasi' }
-                ],
+                dayHeaders: false,
+                initialView: 'timeGridDay',
                 locale: 'uz',
                 height: '100%',
                 
@@ -564,11 +543,6 @@
                     selectedTimeInfo = info;
                     resetForm();
                     
-                    // Устанавливаем выбранную в сетке операционную
-                    if (info.resource) {
-                        document.getElementById('operating-room-select').value = info.resource.id;
-                    }
-
                     if (isHeadNurse && !isAdmin) {
                         document.getElementById('modal-title').innerText = "General уборка arizasi";
                         document.getElementById('op-form-body').style.display = 'none';
@@ -584,7 +558,6 @@
                         setFormReadOnly(false, false, isReanimator, isHeadNurse, false);
                     }
 
-                    document.getElementById('operating-room-select').disabled = false;
                     document.getElementById('btn-delete-op').style.display = 'none';
                     document.getElementById('btn-pause-op').style.display = 'none';
                     document.getElementById('modal-overlay').style.display = 'flex';
@@ -597,7 +570,6 @@
                     currentEventData = { 
                         id: event.id, 
                         userId: props.userId, 
-                        resourceId: event.getResources()[0]?.id || props.resourceId || 'room1',
                         startStr: event.startStr, 
                         endStr: event.endStr,
                         isCleaning: props.isCleaning || false,
@@ -612,8 +584,6 @@
                         isPaused: props.isPaused,
                         pauseReason: props.pauseReason
                     };
-
-                    document.getElementById('operating-room-select').value = currentEventData.resourceId;
 
                     if (props.isCleaning) {
                         document.getElementById('modal-title').innerText = "General уборка tafsilotlari";
@@ -677,7 +647,6 @@
 
                     localEventsCache.push({
                         id: doc.id,
-                        resourceId: data.resourceId || 'room1',
                         title: data.isCleaning 
                             ? `${statusText} General уборка | ${data.responsiblePerson || ''}` 
                             : `${statusText} ${data.operationType} | ${data.patientName}`,
@@ -792,15 +761,14 @@
                     const props = ev.extendedProps;
                     const startTime = formatTashkentTime(ev.start, { hour: '2-digit', minute: '2-digit' });
                     const endTime = formatTashkentTime(ev.end, { hour: '2-digit', minute: '2-digit' });
-                    const roomName = props.resourceId === 'room2' ? '2-operatsiya xonasi' : '1-operatsiya xonasi';
 
                     if (props.isCleaning) {
-                        planText += `${idx + 1}. [${startTime} - ${endTime}] (${roomName}) 🧹 GENERAL UBORKA\n`;
+                        planText += `${idx + 1}. [${startTime} - ${endTime}] 🧹 GENERAL UBORKA\n`;
                         planText += `   Mas'ul: ${props.responsiblePerson}\n`;
                         planText += `   Sanitarkalar: ${props.cleanersNames}\n`;
                         planText += `   Holat: ${props.cleaningDone ? 'Bajarildi' : 'Bajarilmadi'}\n`;
                     } else {
-                        planText += `${idx + 1}. [${startTime} - ${endTime}] (${roomName})\n`;
+                        planText += `${idx + 1}. [${startTime} - ${endTime}]\n`;
                         planText += `   Bemor: ${props.patientName}\n`;
                         planText += `   Operatsiya: ${props.operationType}\n`;
                         planText += `   Shifokor: ${props.doctorName}\n`;
@@ -823,8 +791,9 @@
             showToast('📋 Kun rejasi nusxalandi!');
         }
 
+        // Обновленная функция управления доступом к полям
         function setFormReadOnly(isDefaultReadOnly, isAuthor = false, isReanimatorRole = false, isHeadNurseRole = false, isCleaning = false) {
-            ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names', 'operating-room-select'].forEach(id => {
+            ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names'].forEach(id => {
                 document.getElementById(id).disabled = true;
             });
             document.getElementById('reanimator-approved').disabled = true;
@@ -833,12 +802,11 @@
             let canSave = false;
 
             if (isAdmin) {
-                ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names', 'reanimator-approved', 'cleaning-done', 'operating-room-select'].forEach(id => {
+                ['patient-name', 'operation-type', 'doctor-name', 'has-consent', 'responsible-person', 'cleaners-names', 'reanimator-approved', 'cleaning-done'].forEach(id => {
                     document.getElementById(id).disabled = false;
                 });
                 canSave = true;
-            } else if (!currentEventData) { 
-                document.getElementById('operating-room-select').disabled = false;
+            } else if (!currentEventData) { // Создание новой заявки
                 if (isHeadNurseRole) {
                     document.getElementById('responsible-person').disabled = false;
                     document.getElementById('cleaners-names').disabled = false;
@@ -851,13 +819,12 @@
                     document.getElementById('has-consent').disabled = false;
                     canSave = true;
                 }
-            } else { 
+            } else { // Редактирование существующих
                 if (isCleaning) {
                     if (isHeadNurseRole && (isAuthor || String(currentEventData.userId) === String(user.id))) {
                         document.getElementById('responsible-person').disabled = false;
                         document.getElementById('cleaners-names').disabled = false;
                         document.getElementById('cleaning-done').disabled = false;
-                        document.getElementById('operating-room-select').disabled = false;
                         canSave = true;
                     }
                 } else {
@@ -869,7 +836,6 @@
                         document.getElementById('operation-type').disabled = false;
                         document.getElementById('doctor-name').disabled = false;
                         document.getElementById('has-consent').disabled = false;
-                        document.getElementById('operating-room-select').disabled = false;
                         canSave = true;
                     }
                 }
@@ -880,7 +846,6 @@
 
         async function saveOperation() {
             const isCleaning = (isHeadNurse && (!currentEventData || currentEventData.isCleaning)) && !isAdmin;
-            const resourceId = document.getElementById('operating-room-select').value;
 
             let patientName = '', operationType = '', doctorName = '', hasConsent = false, reanimatorApproved = false;
             let responsiblePerson = '', cleanersNames = '', cleaningDone = false;
@@ -931,19 +896,15 @@
             const newEndMs = new Date(endStr).getTime();
             const currentDocId = currentEventData ? currentEventData.id : null;
 
-            // Проверка накладок раздельно по операционным залам
             const isOverlapping = localEventsCache.some(ev => {
                 if (ev.id === currentDocId) return false;
-                const evRoom = ev.resourceId || 'room1';
-                if (evRoom !== resourceId) return false;
-
                 const evStartMs = new Date(ev.start).getTime();
                 const evEndMs = new Date(ev.end).getTime();
                 return (newStartMs < evEndMs && newEndMs > evStartMs);
             });
 
             if (isOverlapping && !currentEventData && !isAdmin) {
-                return showToast('⚠️ Ushbu operatsiya xonasida bu vaqt band!');
+                return showToast('⚠️ Bu vaqt allaqachon band qilingan!');
             }
 
             const isNew = !currentEventData;
@@ -952,7 +913,6 @@
             if (isCleaning) {
                 eventPayload = {
                     isCleaning: true,
-                    resourceId,
                     responsiblePerson,
                     cleanersNames,
                     cleaningDone,
@@ -962,7 +922,6 @@
                 };
             } else {
                 eventPayload = {
-                    resourceId,
                     patientName: patientName || currentEventData.patientName,
                     operationType: operationType || currentEventData.operationType,
                     doctorName: doctorName || currentEventData.doctorName,
@@ -989,19 +948,16 @@
                 const dateFormatted = formatTashkentTime(newStart, { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const timeStartFormatted = formatTashkentTime(newStart, { hour: '2-digit', minute: '2-digit' });
                 const timeEndFormatted = formatTashkentTime(newEnd, { hour: '2-digit', minute: '2-digit' });
-                const roomTitle = resourceId === 'room2' ? '2-operatsiya xonasi' : '1-operatsiya xonasi';
 
                 let notifyText = '';
                 if (isCleaning) {
                     notifyText = `<b>GENERAL UBORKA ARIZASI</b>\n\n` +
-                                 `<b>Xona:</b> ${roomTitle}\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Mas'ul:</b> ${responsiblePerson}\n` +
                                  `<b>Sanitarkalar:</b> ${cleanersNames}\n` +
                                  `<b>Holat:</b> ${cleaningDone ? 'O‘tkazildi' : 'Kutilmoqda'}`;
                 } else if (isNew) {
                     notifyText = `<b>YANGI OPERATSIYA ARIZASI</b>\n\n` +
-                                 `<b>Xona:</b> ${roomTitle}\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${patientName}\n` +
                                  `<b>Operatsiya:</b> ${operationType}\n` +
@@ -1010,7 +966,6 @@
                                  `<b>Reanimatolog:</b> ${reanimatorApproved ? 'Ruxsat berildi' : 'Kutilmoqda'}`;
                 } else {
                     notifyText = `<b>OPERATSIYA ARIZASI YANGILANDI</b>\n\n` +
-                                 `<b>Xona:</b> ${roomTitle}\n` +
                                  `<b>Sana:</b> ${dateFormatted} (${timeStartFormatted} - ${timeEndFormatted})\n` +
                                  `<b>Bemor:</b> ${eventPayload.patientName}\n` +
                                  `<b>Operatsiya:</b> ${eventPayload.operationType}\n` +
@@ -1123,7 +1078,6 @@
             document.getElementById('has-consent').checked = false;
             document.getElementById('reanimator-approved').checked = false;
             document.getElementById('cleaning-done').checked = false;
-            document.getElementById('operating-room-select').value = 'room1';
             
             selectedDurationMinutes = 60;
             document.querySelectorAll('.duration-btn').forEach((b, idx) => {
