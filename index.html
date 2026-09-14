@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Operatsiyalar rejasi</title>
     
-    <!-- Telegram SDK & FullCalendar (включая плагин resources) -->
+    <!-- Telegram SDK & FullCalendar Premium Bundle (с поддержкой Resource TimeGrid) -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@6.1.10/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/uz.global.min.js"></script>
 
     <!-- Firebase SDKs -->
@@ -88,7 +88,7 @@
 
         .fc-toolbar { display: none !important; }
         
-        /* Стилизация заголовков операционных залов */
+        /* Заголовки для операционных залов */
         .fc-col-header-cell {
             background-color: #e2e8f0 !important;
             padding: 6px 0 !important;
@@ -394,7 +394,7 @@
         // ⚙️ НАСТРОЙКИ TELEGRAM И FIREBASE
         const BOT_TOKEN = "8908847883:AAFmCwUCaSI1YvGGEtjmwElEL63_MDX0Y0I";
         const GROUP_CHAT_ID = "-1003576288707";
-        const ADMIN_IDS = ["963965528"]; 
+        const ADMIN_IDS = ["963965528"]; // ИСПРАВЛЕНО: Полный корректный ID администратора
         const REANIMATOR_IDS = ["963965527", "987654321"];
         const HEAD_NURSE_IDS = ["361373685"];
 
@@ -564,7 +564,6 @@
                     selectedTimeInfo = info;
                     resetForm();
                     
-                    // Устанавливаем выбранную в сетке операционную
                     if (info.resource) {
                         document.getElementById('operating-room-select').value = info.resource.id;
                     }
@@ -584,7 +583,6 @@
                         setFormReadOnly(false, false, isReanimator, isHeadNurse, false);
                     }
 
-                    document.getElementById('operating-room-select').disabled = false;
                     document.getElementById('btn-delete-op').style.display = 'none';
                     document.getElementById('btn-pause-op').style.display = 'none';
                     document.getElementById('modal-overlay').style.display = 'flex';
@@ -931,7 +929,7 @@
             const newEndMs = new Date(endStr).getTime();
             const currentDocId = currentEventData ? currentEventData.id : null;
 
-            // Проверка накладок раздельно по операционным залам
+            // Раздельная проверка слотов по конкретному операционному залу
             const isOverlapping = localEventsCache.some(ev => {
                 if (ev.id === currentDocId) return false;
                 const evRoom = ev.resourceId || 'room1';
